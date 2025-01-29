@@ -20,7 +20,10 @@ selected_species = c("Plectritis congesta", "Collinsia grandiflora",
 
 flowering_WVPT <- flowering_WVPT %>% filter(scientific_name %in% selected_species)
 
-# allSpecies <- read.csv("Data/WVPT_AllSpecies.csv")
+#explore test 
+
+ggplot(flowering_WVPT, aes(y = observed_on, x = latitude)) + geom_point()
+
 
 month <- seq(as.Date("2020-01-01"), 
              as.Date("2020-12-01"), 
@@ -32,6 +35,8 @@ winter.months <- seq(as.Date("2020-09-01"),
                      by = "1 month")
 winter.month_label <- lubridate::month(winter.months, label = TRUE)
 
+str(annual_WVPT)
+
 annual_WVPT <- flowering_WVPT %>%
   #replace(is.na(.),"0") %>%  # not working - why?  because it's a character field and was trying to put number
   mutate(observed_on=dmy(observed_on)
@@ -41,6 +46,10 @@ annual_WVPT <- flowering_WVPT %>%
   ) %>%
   arrange(year,doy) %>%
   rename(species=scientific_name)
+
+ggplot(annual_WVPT, aes(x = latitude, y = doy)) + geom_point()
+
+
 
 annual_WVPT <- mutate(annual_WVPT,
                  winter.year = ifelse(month>8, year+1, year)
@@ -61,10 +70,14 @@ species_sum <- annual_WVPT %>%
   group_by(species) %>% 
   summarise(sum = n())
 
-#test 
-doy <- annual_WVPT %>% 
-  group_by(species) %>% 
-  summarise(mean_doy = mean(doy))
+
+#explore 
+
+ggplot(annual_WVPT, aes(x = latitude, y = doy)) + geom_point()
+
+#printing out weird
+
+
 
 # PRISM (DOES NOT CONTAIN CANADA) -------
 
