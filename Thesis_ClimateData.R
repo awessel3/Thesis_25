@@ -21,8 +21,8 @@ selected_species = c("Plectritis congesta", "Collinsia grandiflora",
 flowering_WVPT <- flowering_WVPT %>% filter(scientific_name %in% selected_species)
 
 #explore test 
-
 ggplot(flowering_WVPT, aes(y = observed_on, x = latitude)) + geom_point()
+###
 
 
 month <- seq(as.Date("2020-01-01"), 
@@ -66,17 +66,11 @@ annual_WVPT <- annual_WVPT  %>%  mutate(year.factor=as.factor(year),
 
 annual_WVPT <- droplevels(filter(annual_WVPT , year > 2018, year<2024))
 
-species_sum <- annual_WVPT %>% 
-  group_by(species) %>% 
-  summarise(sum = n())
-
-
 #explore 
-
 ggplot(annual_WVPT, aes(x = latitude, y = doy)) + geom_point()
 
-#printing out weird
-
+#printing out weird, processing error occuring during these steps? 
+####
 
 
 # PRISM (DOES NOT CONTAIN CANADA) -------
