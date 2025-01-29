@@ -6,7 +6,7 @@ library(sp)
 library(raster)
 library(prism)
 
-setwd("/Users/avawessel/Desktop/Thesis")
+setwd("/Users/avawessel/Desktop/Thesis_25")
 getwd()
 
 # Test Dataset ------
