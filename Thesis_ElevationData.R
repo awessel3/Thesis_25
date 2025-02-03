@@ -6,7 +6,7 @@ library(sf)
 library(elevatr)
 library(ggplot2)
 
-setwd("/Users/avawessel/Desktop/Thesis")
+setwd("/Users/avawessel/Desktop/Thesis_25")
 getwd()
 
 # Retrieving Elevation Data R Script 

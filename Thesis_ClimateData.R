@@ -37,9 +37,13 @@ winter.month_label <- lubridate::month(winter.months, label = TRUE)
 
 str(annual_WVPT)
 
+head(flowering_WVPT$observed_on)
+
+
+
 annual_WVPT <- flowering_WVPT %>%
   #replace(is.na(.),"0") %>%  # not working - why?  because it's a character field and was trying to put number
-  mutate(observed_on=dmy(observed_on)
+  mutate(observed_on=mdy(observed_on)
          ,year=as.numeric(year(observed_on))
          ,month=month(observed_on)
          ,doy = yday(observed_on)

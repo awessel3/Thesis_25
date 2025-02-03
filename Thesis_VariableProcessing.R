@@ -6,7 +6,7 @@ library(sp)
 library(raster)
 
 
-setwd("/Users/avawessel/Desktop/Thesis")
+setwd("/Users/avawessel/Desktop/Thesis_25")
 getwd()
 
 WVPT_Annual_complete <- read_rds("Data/WVPT_Annual_complete.rds")
