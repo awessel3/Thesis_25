@@ -15,7 +15,7 @@ library(GGally)
 library(brms)
 library(lme4)
 
-setwd("~/Desktop/Thesis")
+setwd("~/Desktop/Thesis_25")
 
 WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
 
@@ -38,7 +38,7 @@ precip <- ggplot(data = test.data,
 precip
 
 temp <- ggplot(data = test.data, 
-                 aes(x = preceding_temp, y = doy, col = species)) + 
+                 aes(x = preceding_temp, y = doy)) + 
   geom_point() + 
   geom_smooth(method = "lm", se = FALSE)
 temp
@@ -56,6 +56,32 @@ lat <- ggplot(data = test.data,
 lat
 
 lat + elev + temp + precip
+
+#Against eachother
+precip_temp <- ggplot(data = test.data, 
+                 aes(x = preceding_precip, y = preceding_temp)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE)
+
+
+temp_lat <- ggplot(data = test.data, 
+               aes(x = preceding_temp, y = latitude)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE)
+
+elev_temp <- ggplot(data = test.data, 
+               aes(x = elevation, y = preceding_temp)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE)
+
+
+lat_precip <- ggplot(data = test.data, 
+              aes(x = preceding_precip, y = latitude)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE)
+
+
+precip_temp + temp_lat + elev_temp + lat_precip
 
 
 

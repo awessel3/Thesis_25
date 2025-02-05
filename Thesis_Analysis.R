@@ -29,7 +29,8 @@ formula <- doy ~ 1 + elevation + preceding_temp + preceding_precip + latitude +
 
 formula2 <- doy ~ (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
 
-formula3 <-  doy ~ 1 + elevation + preceding_temp + preceding_precip + latitude + (1 | species) 
+formula3 <-  doy ~ (1 + elevation + preceding_temp + preceding_precip + latitude + 
+                      preceding_temp * latitude + preceding_temp * elevation| species) 
 
 
 data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
@@ -38,7 +39,7 @@ data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, pre
 WVPT_climate_summary <- na.omit(WVPT_climate_summary)
 
 fit <- brm(
-  formula = formula2,
+  formula = formula,
   data = WVPT_climate_summary,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   #prior = priors,
@@ -48,6 +49,11 @@ fit <- brm(
   cores = 4,
   init = "0"
 )
+
+#save(fit, file = "formula2.RData")
+# save(fit, file = "formula3.RData")
+save(fit, file = "formula1.RData")
+
 
  
 as_draws_df(fit) %>% head(3)
