@@ -6,6 +6,7 @@ library(sp)
 library(raster)
 library(tidybayes)
 library(modelr)
+library(loo)
 
 
 # Analysis R Script 
@@ -29,8 +30,11 @@ formula <- doy ~ 1 + elevation + preceding_temp + preceding_precip + latitude +
 
 formula2 <- doy ~ (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
 
-formula3 <-  doy ~ (1 + elevation + preceding_temp + preceding_precip + latitude + 
+formula3 <-  doy ~ 1 + (1 + elevation + preceding_temp + preceding_precip + latitude + 
                       preceding_temp * latitude + preceding_temp * elevation| species) 
+
+formula4 <- doy ~ (1 + preceding_temp + preceding_precip + latitude + 
+                     preceding_temp * latitude | species)
 
 
 data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
@@ -39,7 +43,7 @@ data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, pre
 WVPT_climate_summary <- na.omit(WVPT_climate_summary)
 
 fit <- brm(
-  formula = formula,
+  formula = formula4,
   data = WVPT_climate_summary,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   #prior = priors,
@@ -50,15 +54,41 @@ fit <- brm(
   init = "0"
 )
 
+fit
+
+fit3 <- brm(
+  formula = formula4,
+  data = WVPT_climate_summary,
+  family = gaussian(),  # Assuming DOY is approximately normally distributed
+  #prior = priors,
+  chains = 4,
+  iter = 4000,
+  warmup = 1000,
+  cores = 4,
+  init = "0",
+  control = list(adapt_delta = 0.99)
+)
+
+fit3
+plot(fit3)
+
 #save(fit, file = "formula2.RData")
 # save(fit, file = "formula3.RData")
 save(fit, file = "formula1.RData")
 
+loo1 <- loo(fit)
+loo1
 
  
 as_draws_df(fit) %>% head(3)
 
 fit
+
+fit2 <-load("formula2.RData")
+fit2
+
+fit3 <- load("formula3.RData")
+fit3
 summary(fit)
 plot(fit)
 
