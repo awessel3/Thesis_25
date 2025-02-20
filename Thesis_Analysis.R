@@ -25,8 +25,7 @@ priors <- c(
   set_prior("normal(0, 5)", class = "Intercept")  # Prior for the intercept
 )
 
-formula <- doy ~ 1 + elevation + preceding_temp + preceding_precip + latitude + 
-  preceding_temp * latitude + preceding_temp * elevation + (1 | species) 
+formula <- doy ~ 1 + elevation + preceding_temp + preceding_precip + latitude + (1 | species) 
 
 formula2 <- doy ~ (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
 
@@ -40,24 +39,25 @@ formula4 <- doy ~ (1 + preceding_temp + preceding_precip + latitude +
 data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
                                                preceding_precip, elevation, doy)
 
-WVPT_climate_summary <- na.omit(WVPT_climate_summary)
+#WVPT_climate_summary <- na.omit(WVPT_climate_summary)
+data <- na.omit(data)
 
 fit <- brm(
-  formula = formula4,
-  data = WVPT_climate_summary,
+  formula = formula,
+  data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   #prior = priors,
   chains = 4,
   iter = 2000,
   warmup = 1000,
   cores = 4,
-  init = "0"
+ # init = "0"
 )
 
 fit
 
 fit3 <- brm(
-  formula = formula4,
+  formula = formula,
   data = WVPT_climate_summary,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   #prior = priors,
@@ -66,7 +66,6 @@ fit3 <- brm(
   warmup = 1000,
   cores = 4,
   init = "0",
-  control = list(adapt_delta = 0.99)
 )
 
 fit3

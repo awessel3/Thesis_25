@@ -26,7 +26,7 @@ priors <- c(
 )
 
 test.data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
-                                               preceding_precip, elevation, doy)
+                                               preceding_precip, elevation, doy, precip, temp)
 
 
 #Exploratory just plotting against each other
@@ -87,18 +87,39 @@ precip_temp + temp_lat + elev_temp + lat_precip
 
 # Exploratory with simpler regressions
 
-model1 <- lm(doy ~ 1 + preceding_temp + preceding_precip + elevation + latitude,
+model1 <- lm(doy ~ 1 + preceding_temp + preceding_precip + elevation + latitude + (1 | species),
              data = test.data)
 
 model <- doy ~ 1 + preceding_temp + preceding_precip + elevation + latitude + (1|species)
 
-fit1 <- lmer(model1, test.data)
+fit1 <- lmer(model, test.data)
 
-test.data$predicted_doy <- predict(model1)
 
-predict(model1)
+summary(fit1)$coefficients
 
-summary(model1)
+predictors <- data.frame(
+  pretemp = test.data$preceding_temp,
+  preprecip = test.data$preceding_precip,
+  precip = test.data$precip,
+  temp = test.data$temp,
+  elev = test.data$elevation,
+  lat = test.data$latitude,
+  long = test.data$longitude
+)
+
+cortest_results <- list()
+
+for (i in colnames(predictors)) {
+  for (j in colnames(predictors)) {
+    if (i != j) {
+    test_result <- cor.test(predictors[[i]], predictors[[j]], method = "pearson")
+    cortest_results[[paste(i, j, sep = "_vs_")]] <- test_result
+    }
+  }
+}
+
+cortest_results
+
 
 all.var <- ggpredict(fit1, terms = c("preceding_temp", "preceding_precip", "elevation", "latitude"))
 
