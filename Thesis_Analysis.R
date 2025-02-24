@@ -12,13 +12,40 @@ library(loo)
 # Analysis R Script 
 library(brms)
 
+## Prepping data for model 
+
 WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
 
+data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
+                                               preceding_precip, elevation, doy)
+data <- na.omit(data)
 
-#WVPT_Annual_complete <- WVPT_Annual_complete %>%
- # rowwise() %>%
- # mutate(springTemp = mean(c_across(c("tmean_6", "tmean_7", "tmean_8", "tmean_9")), na.rm = TRUE)) %>%
- # ungroup()
+#scaling 
+doy_num <- as.numeric(data$doy)
+doy_center <- mean(doy_num)
+doy_scale <- sd(doy_num)
+data$doy_sc <- (doy_num - doy_center) / doy_scale
+
+latitude_num <- as.numeric(data$latitude)
+latitude_center <- mean(latitude_num)
+latitude_scale <- sd(latitude_num)
+data$latitude_sc <- (latitude_num - latitude_center) / latitude_scale
+
+ptemp_num <- as.numeric(data$preceding_temp)
+ptemp_center <- mean(ptemp_num)
+ptemp_scale <- sd(ptemp_num)
+data$ptemp_sc <- (ptemp_num - ptemp_center) / ptemp_scale
+
+pprecip_num <- as.numeric(data$preceding_precip)
+pprecip_center <- mean(pprecip_num)
+pprecip_scale <- sd(pprecip_num)
+data$pprecip_sc <- (pprecip_num - pprecip_center) / pprecip_scale     
+
+elevation_num <- as.numeric(data$elevation)
+elevation_center <- mean(elevation_num)
+elevation_scale <- sd(elevation_num)
+data$elevation_sc <- (elevation_num - elevation_center) / elevation_scale
+
 
 priors <- c(
   #set_prior("normal(0, 10)", class = "b"),           # Prior for fixed effects (slope)
@@ -29,26 +56,14 @@ formula_base <-  doy ~ 1 +  preceding_temp + preceding_precip +  latitude + elev
   preceding_temp:latitude + preceding_temp:elevation + 
   (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
 
-formula <- doy ~ 1  + elevation + preceding_temp + preceding_precip + latitude + (1 | species) 
+formula <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
+  pprecip_sc + 
+  (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
-formula2 <- doy ~ (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
-
-formula3 <-  doy ~ 1 + (1 + elevation + preceding_temp + preceding_precip + latitude + 
-                      preceding_temp * latitude + preceding_temp * elevation| species) 
-
-formula4 <- doy ~ (1 + preceding_temp + preceding_precip + latitude + 
-                     preceding_temp * latitude | species)
-
-
-data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
-                                               preceding_precip, elevation, doy)
-
-#WVPT_climate_summary <- na.omit(WVPT_climate_summary)
-data <- na.omit(data)
 
 
 fit <- brm(
-  formula = formula_base,
+  formula = formula,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   #prior = priors,
@@ -65,10 +80,7 @@ pairs(fit, np = nuts_params(fit))
 
 summary(fit)
 
-
-#save(fit, file = "formula2.RData")
-# save(fit, file = "formula3.RData")
-save(fit, file = "formula1.RData")
+save(fit, file = "fit1.RData")
 
 loo1 <- loo(fit)
 loo1
