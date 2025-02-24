@@ -21,11 +21,15 @@ WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
  # ungroup()
 
 priors <- c(
-  set_prior("normal(0, 500)", class = "b"),           # Prior for fixed effects (slope)
-  set_prior("normal(0, 5)", class = "Intercept")  # Prior for the intercept
+  #set_prior("normal(0, 10)", class = "b"),           # Prior for fixed effects (slope)
+  set_prior("normal(0, 100)", class = "Intercept")  # Prior for the intercept
 )
 
-formula <- doy ~ 1 + elevation + preceding_temp + preceding_precip + latitude + (1 | species) 
+formula_base <-  doy ~ 1 +  preceding_temp + preceding_precip +  latitude + elevation + 
+  preceding_temp:latitude + preceding_temp:elevation + 
+  (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
+
+formula <- doy ~ 1  + elevation + preceding_temp + preceding_precip + latitude + (1 | species) 
 
 formula2 <- doy ~ (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
 
@@ -42,34 +46,25 @@ data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, pre
 #WVPT_climate_summary <- na.omit(WVPT_climate_summary)
 data <- na.omit(data)
 
+
 fit <- brm(
-  formula = formula,
+  formula = formula_base,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   #prior = priors,
+  control = list(adapt_delta = 0.99),
   chains = 4,
-  iter = 2000,
-  warmup = 1000,
+  iter = 5000,
+  warmup = 3000,
   cores = 4,
- # init = "0"
+  #init = "0"
 )
 
-fit
+pairs(fit, np = nuts_params(fit))
 
-fit3 <- brm(
-  formula = formula,
-  data = WVPT_climate_summary,
-  family = gaussian(),  # Assuming DOY is approximately normally distributed
-  #prior = priors,
-  chains = 4,
-  iter = 4000,
-  warmup = 1000,
-  cores = 4,
-  init = "0",
-)
 
-fit3
-plot(fit3)
+summary(fit)
+
 
 #save(fit, file = "formula2.RData")
 # save(fit, file = "formula3.RData")
