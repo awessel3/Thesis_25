@@ -78,9 +78,8 @@ fit <- brm(
 pairs(fit, np = nuts_params(fit))
 
 
-summary(fit)
 
-save(fit, file = "fit1.RData")
+save(fit, file = "Data/fit1.RData")
 
 loo1 <- loo(fit)
 loo1
@@ -88,13 +87,6 @@ loo1
  
 as_draws_df(fit) %>% head(3)
 
-fit
-
-fit2 <-load("formula2.RData")
-fit2
-
-fit3 <- load("formula3.RData")
-fit3
 summary(fit)
 plot(fit)
 
