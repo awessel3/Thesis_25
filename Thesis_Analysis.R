@@ -46,31 +46,38 @@ elevation_center <- mean(elevation_num)
 elevation_scale <- sd(elevation_num)
 data$elevation_sc <- (elevation_num - elevation_center) / elevation_scale
 
-
-#priors <- c(
-  #set_prior("normal(0, 10)", class = "b"),          
- # set_prior("normal(0, 100)", class = "Intercept"))
-
-
-# fit1
+# fit0
 formula <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + 
   (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
 #altering model to leave on out to reconginze necessary complexity 
 
-# pass 1: remove cross-level interaction between temp & lat - made no difference in complexity
-# fit2
+# pass 1: remove cross-level interaction between temp & lat - made no large difference 
+# simpliest and best compared to fit0 and fit2
+# fit1
 formula1 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
 # pass 2: remove cross-level interaction between temp & elev - pass 1 perfomed sig better. 
-formula2 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc +
+#fit2
+formula2 <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc + elevation_sc +
+  pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
+
+# pass 3: remove cross-level interactions within random slope 
+# worst model so far 
+#fit3 
+formula3 <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
+  pprecip_sc + (1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc + pprecip_sc | species)
+
+# pass 4: removing all cross-level interactions with fixed-effects
+
+formula4 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc +
   pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
 
 fit <- brm(
-  formula = formula1,
+  formula = formula4,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -92,18 +99,22 @@ plot(fit)
 pairs(fit, np = nuts_params(fit))
 
 #original model save
-saveRDS(fit, file = "Data/fit1.RDS")
-fit1 <- readRDS("Data/fit1.RDS")  
+#saveRDS(fit, file = "Data/fit0.RDS")
+fit0 <- readRDS("Data/fit0.RDS")  
 
 #pass 1 save 
-saveRDS(fit, file = "Data/fit2.RDS")
+#saveRDS(fit, file = "Data/fit2.RDS")
+fit1 <- readRDS("Data/fit1.RDS")  
+
+# pass 2 save
+#saveRDS(fit, file = "Data/fit3.RDS")
 fit2 <- readRDS("Data/fit2.RDS")  
 
-#pass 2 save, saving issue, am not rerunning model, therefore not saved. 
+#pass 3 save 
 #saveRDS(fit, file = "Data/fit3.RDS")
-#fit3 <- readRDS("Data/fit3.RDS")  
+fit3 <- readRDS("Data/fit3.RDS") 
 
-loo1 <- loo(fit1, fit2)
+loo1 <- loo(fit1, fit3)
 loo1
 
  
