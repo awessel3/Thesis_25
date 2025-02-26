@@ -47,39 +47,59 @@ elevation_scale <- sd(elevation_num)
 data$elevation_sc <- (elevation_num - elevation_center) / elevation_scale
 
 
-priors <- c(
-  #set_prior("normal(0, 10)", class = "b"),           # Prior for fixed effects (slope)
-  set_prior("normal(0, 100)", class = "Intercept")  # Prior for the intercept
-)
+#priors <- c(
+  #set_prior("normal(0, 10)", class = "b"),          
+ # set_prior("normal(0, 100)", class = "Intercept"))
 
-formula_base <-  doy ~ 1 +  preceding_temp + preceding_precip +  latitude + elevation + 
-  preceding_temp:latitude + preceding_temp:elevation + 
-  (1 + elevation + preceding_temp + preceding_precip + latitude | species) 
 
+# fit1
 formula <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + 
   (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
+#altering model to leave on out to reconginze necessary complexity 
+
+# pass 1: remove cross-level interaction between temp & lat - made no difference in complexity
+# fit2
+formula1 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
+  pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
+
+# pass 2: remove cross-level interaction between temp & elev - pass 1 perfomed sig better. 
+formula2 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc +
+  pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
 
 fit <- brm(
   formula = formula,
+  formula = formula2,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
-  #prior = priors,
-  control = list(adapt_delta = 0.99),
+  control = list(adapt_delta = 0.99,
+                 max_treedepth = 15),
+  save_pars = save_pars(all = TRUE),
   chains = 4,
-  iter = 5000,
-  warmup = 3000,
+  iter = 4000,
+  warmup = 2000,
+  thin = 3,
   cores = 4,
   #init = "0"
 )
 
 pairs(fit, np = nuts_params(fit))
 
+#original model save
+saveRDS(fit, file = "Data/fit1.RDS")
+fit1 <- readRDS("Data/fit1.RDS")  
+
+#pass 1 save 
+saveRDS(fit, file = "Data/fit2.RDS")
+fit2 <- readRDS("Data/fit2.RDS")  
+
+#pass 2 save, saving issue, am not rerunning model, therefore not saved. 
+#saveRDS(fit, file = "Data/fit3.RDS")
+#fit3 <- readRDS("Data/fit3.RDS")  
 
 
-save(fit, file = "Data/fit1.RData")
 
 loo1 <- loo(fit)
 loo1
@@ -89,31 +109,31 @@ as_draws_df(fit) %>% head(3)
 
 summary(fit)
 plot(fit)
-
-original_data <- fit$data 
 lp_draws <- linpred_draws(fit, newdata = original_data)
 
-# doy ~ 1 + elevation + preceding_temp + preceding_precip + latitude + preceding_temp 
-#* latitude + preceding_temp * elevation + (1 | species) 
 
-
+original_data <- fit$data 
 spp <- unique(original_data$species)
 
 ## Initial Plot Creation ----
 # Create a new dataset to predict over
 data.predict <- crossing(
-  elevation = mean(original_data$elevation) # predictions at mean elevation
-  ,preceding_temp = mean(original_data$preceding_temp, na.rm=TRUE) # predictions at mean temp
-  ,preceding_precip = mean(original_data$preceding_precip, na.rm=TRUE) # predictions at mean precip
-  ,latitude = round(as.numeric(seq_range(quantile(original_data$latitude, probs=c(.05,.5,.95)), n=50)), digits=3)
-  ,species= spp 
+  elevation_sc = (mean(original_data$elevation, na.rm = TRUE) - elevation_center) / elevation_scale, 
+  ptemp_sc = (mean(original_data$preceding_temp, na.rm = TRUE) - ptemp_center) / ptemp_scale,  
+  pprecip_sc = (mean(original_data$preceding_precip, na.rm = TRUE) - pprecip_center) / pprecip_scale,
+  latitude_sc = (seq_range(quantile(original_data$latitude, probs = c(.05, .5, .95)), n = 50) - latitude_center) / latitude_scale,
+  species = spp  
 )
 
 
 # make predictions using the fitted model
 fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, allow_new_levels=TRUE) %>%
-  mutate(DOY_pred = .linpred )
+  mutate(DOY_pred_sc = .linpred )
 
+# Unscale the predicted DOY
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = (DOY_pred_scaled * doy_scale) + doy_center,
+         latitude = (latitude_sc * latitude_scale) + latitude_center)  
 
 
 # Plot
