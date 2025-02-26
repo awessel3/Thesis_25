@@ -70,8 +70,7 @@ formula2 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc +
 
 
 fit <- brm(
-  formula = formula,
-  formula = formula2,
+  formula = formula1,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -84,6 +83,11 @@ fit <- brm(
   cores = 4,
   #init = "0"
 )
+
+summary(fit)
+pp_check(fit, plotfun = "dens_overlay")
+bayesplot::ppc_scatter_avg(y = data$doy_sc, yrep = posterior_predict(fit))
+plot(fit)
 
 pairs(fit, np = nuts_params(fit))
 
@@ -99,16 +103,12 @@ fit2 <- readRDS("Data/fit2.RDS")
 #saveRDS(fit, file = "Data/fit3.RDS")
 #fit3 <- readRDS("Data/fit3.RDS")  
 
-
-
-loo1 <- loo(fit)
+loo1 <- loo(fit1, fit2)
 loo1
 
  
 as_draws_df(fit) %>% head(3)
 
-summary(fit)
-plot(fit)
 lp_draws <- linpred_draws(fit, newdata = original_data)
 
 
@@ -118,21 +118,20 @@ spp <- unique(original_data$species)
 ## Initial Plot Creation ----
 # Create a new dataset to predict over
 data.predict <- crossing(
-  elevation_sc = (mean(original_data$elevation, na.rm = TRUE) - elevation_center) / elevation_scale, 
-  ptemp_sc = (mean(original_data$preceding_temp, na.rm = TRUE) - ptemp_center) / ptemp_scale,  
-  pprecip_sc = (mean(original_data$preceding_precip, na.rm = TRUE) - pprecip_center) / pprecip_scale,
-  latitude_sc = (seq_range(quantile(original_data$latitude, probs = c(.05, .5, .95)), n = 50) - latitude_center) / latitude_scale,
-  species = spp  
-)
+  elevation_sc = mean(original_data$elevation_sc), # predictions at mean elevation
+  ptemp_sc = mean(original_data$ptemp_sc), # temperature range
+  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 5),
+  species = spp)
 
 
 # make predictions using the fitted model
-fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, allow_new_levels=TRUE) %>%
+fitted.pred <-  linpred_draws(object = fit, newdata=data.predict, ndraws=1000, allow_new_levels=TRUE) %>%
   mutate(DOY_pred_sc = .linpred )
 
 # Unscale the predicted DOY
 fitted.pred <- fitted.pred %>%
-  mutate(DOY_pred = (DOY_pred_scaled * doy_scale) + doy_center,
+  mutate(DOY_pred = DOY_pred_sc,
          latitude = (latitude_sc * latitude_scale) + latitude_center)  
 
 
@@ -147,22 +146,26 @@ ggplot(fitted.pred, aes(x = latitude , y = DOY_pred, color=species))+
 
 #Temp vs DOY
 data.predict <- crossing(
-  elevation = mean(original_data$elevation) # predictions at mean elevation
-  ,preceding_temp = seq(min(original_data$preceding_temp), max(original_data$preceding_temp), length.out = 100) # predictions at mean temp
-  ,preceding_precip = mean(original_data$preceding_precip, na.rm=TRUE) # predictions at mean precip
-  ,latitude = mean(original_data$latitude, na.rm = TRUE)
-  ,species= spp 
-)
+  elevation_sc = mean(original_data$elevation_sc), # predictions at mean elevation
+  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
+  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
+  species = spp
+  )
 
 
 # make predictions using the fitted model
 fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, allow_new_levels=TRUE) %>%
-  mutate(DOY_pred = .linpred )
+  mutate(DOY_pred_sc = .linpred )
+
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = DOY_pred_sc,
+         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center)
 
 
 
 # Plot
-ggplot(fitted.pred, aes(x = preceding_temp , y = DOY_pred, color=species))+
+ggplot(fitted.pred, aes(x = preceding_temp , y = DOY_pred, color = species))+
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
   labs(y="Day of Year flowering", x="preceding temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -172,16 +175,21 @@ ggplot(fitted.pred, aes(x = preceding_temp , y = DOY_pred, color=species))+
 #Temp|latitude vs DOY
 # Define predictions dataset
 data.predict <- crossing(
-  elevation = mean(original_data$elevation), # predictions at mean elevation
-  preceding_temp = seq(min(original_data$preceding_temp), max(original_data$preceding_temp), length.out = 100), # temperature range
-  preceding_precip = mean(original_data$preceding_precip, na.rm = TRUE), # mean precipitation
-  latitude = seq(min(original_data$latitude), max(original_data$latitude), length.out = 5),
+  elevation_sc = mean(original_data$elevation_sc, na.rm = TRUE), # predictions at mean elevation
+  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
+  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 5),
   species = spp
 )
 
 # Make predictions using the fitted model
 fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000, allow_new_levels = TRUE) %>%
-  mutate(DOY_pred = .linpred)
+  mutate(DOY_pred_sc = .linpred)
+
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = DOY_pred_sc,
+         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
+         latitude = (latitude_sc * latitude_scale) + latitude_center)
 
 # Plot
 ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
@@ -193,19 +201,24 @@ ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(l
 #Temp|Elevation vs DOY
 # Define predictions dataset
 data.predict <- crossing(
-  elevation = seq(min(original_data$elevation), max(original_data$elevation), length.out = 5),
-  preceding_temp = seq(min(original_data$preceding_temp), max(original_data$preceding_temp), length.out = 100), # temperature range
-  preceding_precip = mean(original_data$preceding_precip, na.rm = TRUE), # mean precipitation
-  latitude = mean(original_data$latitude, na.rm = TRUE),
+  elevation_sc = seq(min(original_data$elevation_sc), max(original_data$elevation_sc), length.out = 5), # predictions at mean elevation
+  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
+  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
   species = spp
 )
 
 # Make predictions using the fitted model
 fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000, allow_new_levels = TRUE) %>%
-  mutate(DOY_pred = .linpred)
+  mutate(DOY_pred_sc = .linpred)
+
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = DOY_pred_sc,
+         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
+         elevation = (elevation_sc * elevation_scale) + elevation_center)
 
 # Plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(elevation))) +
+ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(elevation, 0)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
