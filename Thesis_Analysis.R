@@ -12,6 +12,20 @@ library(loo)
 # Analysis R Script 
 library(brms)
 
+trait_species <- read.csv("trait_species.csv")
+WVPT_species <- read.csv("WVPT_species3.3.csv")
+traits_full <- read.csv('Traits.csv')
+
+trait_species <- trait_species %>%
+  mutate(Full.species.name = case_when(
+    Full.species.name == "Clarkia purpurea ssp. quadrivulnera" ~ "Clarkia purpurea",
+    TRUE ~ Full.species.name
+  ))
+
+trait_species <- rename(trait_species, Species.Name = Full.species.name)
+
+see_matches <- inner_join(WVPT_species, trait_species, by = 'Species.Name')
+
 ## Prepping data for model 
 
 WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
@@ -47,7 +61,7 @@ elevation_scale <- sd(elevation_num)
 data$elevation_sc <- (elevation_num - elevation_center) / elevation_scale
 
 # fit0
-formula <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
+formula <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + 
   (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
@@ -56,7 +70,7 @@ formula <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
 # pass 1: remove cross-level interaction between temp & lat - made no large difference 
 # simpliest and best compared to fit0 and fit2
 # fit1
-formula1 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
+formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
 # pass 2: remove cross-level interaction between temp & elev - pass 1 perfomed sig better. 
@@ -77,7 +91,7 @@ formula4 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc +
 
 
 fit <- brm(
-  formula = formula4,
+  formula = formula,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -114,7 +128,7 @@ fit2 <- readRDS("Data/fit2.RDS")
 #saveRDS(fit, file = "Data/fit3.RDS")
 fit3 <- readRDS("Data/fit3.RDS") 
 
-loo1 <- loo(fit1, fit3)
+loo1 <- loo(fit0, fit3)
 loo1
 
  
@@ -123,7 +137,9 @@ as_draws_df(fit) %>% head(3)
 lp_draws <- linpred_draws(fit, newdata = original_data)
 
 
-original_data <- fit$data 
+original_data <- fit0$data 
+
+fit <- fit0
 spp <- unique(original_data$species)
 
 ## Initial Plot Creation ----
@@ -240,104 +256,57 @@ ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(e
 # Creating phenological sensitivity plot ----
 
 #create dataframe with all variable ranges to predict doy 
-new_data <- crossing(
-  elevation =  seq(min(original_data$elevation), max(original_data$elevation), length.out = 5),
-  preceding_temp = seq(min(original_data$preceding_temp), max(original_data$preceding_temp), length.out = 100), # temperature range
-  preceding_precip = seq(min(original_data$preceding_precip), max(original_data$preceding_precip), length.out = 5), # mean precipitation
-  latitude = seq(min(original_data$latitude), max(original_data$latitude), length.out = 5),
+data.predict <- crossing(
+  elevation_sc = seq(min(original_data$elevation_sc), max(original_data$elevation_sc), length.out = 10), 
+  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100),
+  pprecip_sc = seq(min(original_data$pprecip_sc), max(original_data$pprecip_sc), length.out = 100),
+  latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 10),
   species = spp
 )
 
 #predict doy 
-predictions <-  linpred_draws(object = fit, newdata = new_data, ndraws = 1000, allow_new_levels = TRUE) %>%
-  mutate(DOY_pred = .linpred)
+fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000, allow_new_levels = TRUE) %>%
+  mutate(DOY_pred_sc = .linpred)
 
-summary(fit)$fixed
-
-fixef(fit)
-
-ranef(fit)
-
-coef(fit)
-
-posterior <- as_draws_df(fit)
-head(posterior)
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = DOY_pred_sc,
+         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
+         elevation = (elevation_sc * elevation_scale) + elevation_center,
+         preceding_precip = (pprecip_sc * pprecip_scale) + pprecip_center,
+         latitude = (latitude_sc * latitude_scale) + latitude_center)
 
 
-#extract observed and predicted doy and calculate sensitivity 
-sensitivity_draws <- predictions %>%
-  group_by(species, .draw) %>%
-  summarise(
-    observed_doy = mean(data$doy),  
-    pred_doy = mean(DOY_pred),    
-    sensitivity = observed_doy - pred_doy
-  )
+## Random Slopes just for Temp 
+data.predict <- crossing(
+  elevation_sc = mean(original_data$elevation_sc), # predictions at mean elevation
+  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
+  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
+  species = spp
+)
+# make predictions using the fitted model
+fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, allow_new_levels=TRUE) %>%
+  mutate(DOY_pred_sc = .linpred )
 
-#summarize draws and calculate ci
-sensitivity_summary <- sensitivity_draws %>%
-  group_by(species) %>%
-  summarise(
-    sensitivity = mean(sensitivity),
-    pred_doy = mean(pred_doy),
-    observed_doy = mean(observed_doy),
-    lower_ci = quantile(sensitivity, 0.025),
-    upper_ci = quantile(sensitivity, 0.975)
-  )
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = DOY_pred_sc,
+         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center)
 
+# view variables that can be extracted 
+get_variables(fit)
 
-# Issues with observed doy-- (Something changing) --- calculate doy from original data?
- ## Why does it change? 
-ob_doy <- WVPT_climate_summary %>% 
-  group_by(species) %>% 
-  summarise(observed_doy = mean(doy))
+# extracr species specific slopes for temperature
+sp_slopes_posterior_temp <- fit %>%
+  spread_draws(r_species[species, ptemp_sc ])  
+head(sp_slopes_posterior_temp)
 
-# Join data with true observed doy 
-#ps.zero <- full_join(observed_doy, sensitivity_summary, by = "species")
-ps <- full_join(ob_doy, sensitivity_summary, by = "species")
-ps <- ps %>% select(c(-observed_doy.y)) %>% rename(observed_doy = observed_doy.x)
+unique(sp_slopes_posterior_temp$ptemp_sc)
 
-str(ps)
-ps$observed_doy <- as.numeric(ps$observed_doy)
-ps$pred_doy <- as.numeric(ps$pred_doy)
-ps$sensitivity <- as.numeric(ps$sensitivity)
-ps$lower_ci <- as.numeric(ps$lower_ci)
-ps$upper_ci <- as.numeric(ps$upper_ci)
-str(ps)
-
-ps$observed_doy <- round(ps$observed_doy, 0)
-
-
-#Create plot
-## How can I make accurate errorbars? 
-##W What can I gather from this figure? 
-ggplot(ps, aes(x = observed_doy, y = sensitivity, color = species)) +
-  geom_point(size = 3) +  
-  geom_hline(aes(yintercept = 0), color = "red") + 
-  #geom_errorbar(aes(x = observed_doy, ymin = lower_ci, ymax = upper_ci), width = 0) + 
-  labs(
-    x = "Observed DOY (Mean)",
-    y = "Phenological Sensitivity (DOY/C)",
-    x
-  ) +
+ggplot(sp_slopes_posterior_temp, aes(x = species, y = r_species)) + 
+  stat_summary(geom = "pointrange", fun.data = mean_hdi) +
+  labs(title = "Species-Specific Slopes", x = "Species", y = "Slope") +
   theme_minimal()
 
 
-#old
-observed_doy <- data %>% 
-  group_by(species) %>% 
-  summarise(observed_doy = mean(doy))
 
 
-pred_doy <- predictions %>%  
-  group_by(species) %>% 
-  summarise(pred_doy = mean(DOY_pred))
-  
-ps <- full_join(observed_doy, pred_doy)
-
-ps <- ps %>%
-  mutate(sensitivity = observed_doy - pred_doy)
-
-str(ps)
-ps$observed_doy <- as.numeric(ps$observed_doy)
-ps$pred_doy <- as.numeric(ps$pred_doy)
-ps$sensitivity <- as.numeric(ps$sensitivity)
