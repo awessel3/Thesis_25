@@ -91,7 +91,7 @@ formula4 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc +
 
 
 fit <- brm(
-  formula = formula,
+  formula = formula1,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -158,7 +158,7 @@ fitted.pred <-  linpred_draws(object = fit, newdata=data.predict, ndraws=1000, a
 
 # Unscale the predicted DOY
 fitted.pred <- fitted.pred %>%
-  mutate(DOY_pred = DOY_pred_sc,
+  mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
          latitude = (latitude_sc * latitude_scale) + latitude_center)  
 
 
@@ -186,7 +186,7 @@ fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, all
   mutate(DOY_pred_sc = .linpred )
 
 fitted.pred <- fitted.pred %>%
-  mutate(DOY_pred = DOY_pred_sc,
+  mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
          preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center)
 
 
@@ -214,7 +214,7 @@ fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000
   mutate(DOY_pred_sc = .linpred)
 
 fitted.pred <- fitted.pred %>%
-  mutate(DOY_pred = DOY_pred_sc,
+  mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
          preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
          latitude = (latitude_sc * latitude_scale) + latitude_center)
 
@@ -240,7 +240,7 @@ fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000
   mutate(DOY_pred_sc = .linpred)
 
 fitted.pred <- fitted.pred %>%
-  mutate(DOY_pred = DOY_pred_sc,
+  mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
          preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
          elevation = (elevation_sc * elevation_scale) + elevation_center)
 
@@ -255,43 +255,7 @@ ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(e
 
 # Creating phenological sensitivity plot ----
 
-#create dataframe with all variable ranges to predict doy 
-data.predict <- crossing(
-  elevation_sc = seq(min(original_data$elevation_sc), max(original_data$elevation_sc), length.out = 10), 
-  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100),
-  pprecip_sc = seq(min(original_data$pprecip_sc), max(original_data$pprecip_sc), length.out = 100),
-  latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 10),
-  species = spp
-)
-
-#predict doy 
-fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000, allow_new_levels = TRUE) %>%
-  mutate(DOY_pred_sc = .linpred)
-
-fitted.pred <- fitted.pred %>%
-  mutate(DOY_pred = DOY_pred_sc,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
-         elevation = (elevation_sc * elevation_scale) + elevation_center,
-         preceding_precip = (pprecip_sc * pprecip_scale) + pprecip_center,
-         latitude = (latitude_sc * latitude_scale) + latitude_center)
-
-
 ## Random Slopes just for Temp 
-data.predict <- crossing(
-  elevation_sc = mean(original_data$elevation_sc), # predictions at mean elevation
-  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
-  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
-  latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
-  species = spp
-)
-# make predictions using the fitted model
-fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, allow_new_levels=TRUE) %>%
-  mutate(DOY_pred_sc = .linpred )
-
-fitted.pred <- fitted.pred %>%
-  mutate(DOY_pred = DOY_pred_sc,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center)
-
 # view variables that can be extracted 
 get_variables(fit)
 
@@ -306,6 +270,33 @@ ggplot(sp_slopes_posterior_temp, aes(x = species, y = r_species)) +
   stat_summary(geom = "pointrange", fun.data = mean_hdi) +
   labs(title = "Species-Specific Slopes", x = "Species", y = "Slope") +
   theme_minimal()
+
+species_phenology <- fit %>%
+  spread_draws(r_species[species, ptemp_sc]) %>%
+  group_by(species) %>%
+  summarise(
+    mean_sensitivity = mean(r_species),  
+    lower_95 = quantile(r_species, 0.025),
+    upper_95 = quantile(r_species, 0.975)
+  )
+
+species_phenology$species <- gsub("\\.", " ", species_phenology$species)
+
+# Extract mean flowering
+mean_doy <- original_data %>%
+  group_by(species) %>%
+  summarise(mean_doy = mean(((doy_sc * doy_scale) + doy_center), na.rm = TRUE))
+
+# Merge datasets
+
+ps_plot_dat <- left_join(species_phenology, mean_doy, by = 'species')
+
+
+ggplot(ps_plot_dat, aes(x = mean_doy, y = mean_sensitivity, color = species)) +
+  geom_point(size = 3, aes(color = species)) + 
+  geom_hline(yintercept = 0)
+  
+  
 
 
 
