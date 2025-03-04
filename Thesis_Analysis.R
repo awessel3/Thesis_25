@@ -117,7 +117,7 @@ pairs(fit, np = nuts_params(fit))
 fit0 <- readRDS("Data/fit0.RDS")  
 
 #pass 1 save 
-#saveRDS(fit, file = "Data/fit2.RDS")
+saveRDS(fit, file = "Data/fit1.RDS")
 fit1 <- readRDS("Data/fit1.RDS")  
 
 # pass 2 save
@@ -128,7 +128,7 @@ fit2 <- readRDS("Data/fit2.RDS")
 #saveRDS(fit, file = "Data/fit3.RDS")
 fit3 <- readRDS("Data/fit3.RDS") 
 
-loo1 <- loo(fit0, fit3)
+loo1 <- loo(fit0, fit)
 loo1
 
  
@@ -137,9 +137,9 @@ as_draws_df(fit) %>% head(3)
 lp_draws <- linpred_draws(fit, newdata = original_data)
 
 
-original_data <- fit0$data 
+original_data <- fit1$data 
 
-fit <- fit0
+fit <- fit1
 spp <- unique(original_data$species)
 
 ## Initial Plot Creation ----
@@ -271,7 +271,7 @@ ggplot(sp_slopes_posterior_temp, aes(x = species, y = r_species)) +
   labs(title = "Species-Specific Slopes", x = "Species", y = "Slope") +
   theme_minimal()
 
-species_phenology <- fit %>%
+species_temp_ps <- fit %>%
   spread_draws(r_species[species, ptemp_sc]) %>%
   group_by(species) %>%
   summarise(
@@ -280,7 +280,7 @@ species_phenology <- fit %>%
     upper_95 = quantile(r_species, 0.975)
   )
 
-species_phenology$species <- gsub("\\.", " ", species_phenology$species)
+species_temp_ps$species <- gsub("\\.", " ", species_temp_ps$species)
 
 # Extract mean flowering
 mean_doy <- original_data %>%
@@ -289,14 +289,13 @@ mean_doy <- original_data %>%
 
 # Merge datasets
 
-ps_plot_dat <- left_join(species_phenology, mean_doy, by = 'species')
+temp_ps_plot_dat <- left_join(species_temp_ps, mean_doy, by = 'species')
 
 
-ggplot(ps_plot_dat, aes(x = mean_doy, y = mean_sensitivity, color = species)) +
+ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = mean_sensitivity, color = species)) +
   geom_point(size = 3, aes(color = species)) + 
   geom_hline(yintercept = 0)
-  
-  
+
 
 
 
