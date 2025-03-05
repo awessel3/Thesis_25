@@ -67,7 +67,7 @@ formula <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
 
 #altering model to leave on out to reconginze necessary complexity 
 
-# pass 1: remove cross-level interaction between temp & lat - made no large difference 
+# pass 1: remove cross-level interaction between temp & lat - 
 # simpliest and best compared to fit0 and fit2
 # fit1
 formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
@@ -75,23 +75,22 @@ formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
 
 # pass 2: remove cross-level interaction between temp & elev - pass 1 perfomed sig better. 
 #fit2
-formula2 <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc + elevation_sc +
+formula2 <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc + elevation_sc +
   pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
-# pass 3: remove cross-level interactions within random slope 
-# worst model so far 
+# pass 3: remove cross-level interaction temp and lat in random slopes
 #fit3 
-formula3 <- doy ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
-  pprecip_sc + (1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc + pprecip_sc | species)
+formula3 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
+  pprecip_sc + (1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
-# pass 4: removing all cross-level interactions with fixed-effects
+# pass 4: removing all fixed effects 
+formula4 <- doy_sc ~ 1 + (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
-formula4 <- doy ~ 1 + ptemp_sc + latitude_sc + ptemp_sc + elevation_sc +
-  pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
+formula5 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc + pprecip_sc + (1 | species)
 
 
 fit <- brm(
-  formula = formula1,
+  formula = formula5,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -117,7 +116,7 @@ pairs(fit, np = nuts_params(fit))
 fit0 <- readRDS("Data/fit0.RDS")  
 
 #pass 1 save 
-saveRDS(fit, file = "Data/fit1.RDS")
+#saveRDS(fit, file = "Data/fit1.RDS")
 fit1 <- readRDS("Data/fit1.RDS")  
 
 # pass 2 save
@@ -128,7 +127,11 @@ fit2 <- readRDS("Data/fit2.RDS")
 #saveRDS(fit, file = "Data/fit3.RDS")
 fit3 <- readRDS("Data/fit3.RDS") 
 
-loo1 <- loo(fit0, fit)
+#pass4 save 
+saveRDS(fit, file = "Data/fit4.RDS")
+fit4 <- readRDS("Data/fit4.RDS") 
+
+loo1 <- loo(fit3, fit4)
 loo1
 
  
@@ -137,9 +140,9 @@ as_draws_df(fit) %>% head(3)
 lp_draws <- linpred_draws(fit, newdata = original_data)
 
 
-original_data <- fit1$data 
+original_data <- fit3$data 
 
-fit <- fit1
+fit <- fit3
 spp <- unique(original_data$species)
 
 ## Initial Plot Creation ----
@@ -280,6 +283,14 @@ species_temp_ps <- fit %>%
     upper_95 = quantile(r_species, 0.975)
   )
 
+# unscaling estimated parameters 
+species_temp_ps <- species_temp_ps %>%
+  mutate(sensitivity_unscaled = mean_sensitivity * (doy_scale / ptemp_scale),
+         lower_95_unscaled = lower_95 * (doy_scale / ptemp_scale),
+         upper_95_unscaled = upper_95 * (doy_scale / ptemp_scale))
+
+
+#fixing species names containing . between 
 species_temp_ps$species <- gsub("\\.", " ", species_temp_ps$species)
 
 # Extract mean flowering
@@ -287,14 +298,17 @@ mean_doy <- original_data %>%
   group_by(species) %>%
   summarise(mean_doy = mean(((doy_sc * doy_scale) + doy_center), na.rm = TRUE))
 
-# Merge datasets
-
+# Merge data sets
 temp_ps_plot_dat <- left_join(species_temp_ps, mean_doy, by = 'species')
+temp_ps_plot_dat
 
-
-ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = mean_sensitivity, color = species)) +
+ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
   geom_point(size = 3, aes(color = species)) + 
-  geom_hline(yintercept = 0)
+  stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
+
+
 
 
 
