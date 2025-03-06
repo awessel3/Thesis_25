@@ -128,10 +128,14 @@ fit2 <- readRDS("Data/fit2.RDS")
 fit3 <- readRDS("Data/fit3.RDS") 
 
 #pass4 save 
-saveRDS(fit, file = "Data/fit4.RDS")
+#saveRDS(fit, file = "Data/fit4.RDS")
 fit4 <- readRDS("Data/fit4.RDS") 
 
-loo1 <- loo(fit3, fit4)
+#pass5 save 
+#saveRDS(fit, file = "Data/fit5.RDS")
+fit5 <- readRDS("Data/fit5.RDS") 
+
+loo1 <- loo(fit4, fit5)
 loo1
 
  
