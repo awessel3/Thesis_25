@@ -9,7 +9,9 @@ library(raster)
 setwd("/Users/avawessel/Desktop/Thesis_25")
 getwd()
 
-WVPT_Annual_complete <- read_rds("Data/WVPT_Annual_complete.rds")
+#WVPT_Annual_complete <- read_rds("Data/WVPT_Annual_complete.rds")
+
+df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
 
 
 calculateClimate <- function(df) {
@@ -36,12 +38,14 @@ calculateClimate <- function(df) {
       )
     ) %>%
     ungroup() %>% 
-    dplyr::select(-preceding_months, -geometry, -observation_month)
+    dplyr::select(-preceding_months, -observation_month)
 }
 
-WVPT_climate_summary <- calculateClimate(WVPT_Annual_complete)
+#WVPT_climate_summary <- calculateClimate(WVPT_Annual_complete)
+df_flr_final_summary <- calculateClimate(df_flr_final_complete)
 
-saveRDS(WVPT_climate_summary, file="Data/WVPT_climate_summary.rds") 
 
-write_csv(WVPT_climate_summary, file="Data/WVPT_climate_summary.csv")
+saveRDS(df_flr_final_summary, file="Data/df_flr_final_summary.rds") 
+
+write_csv(df_flr_final_summary, file="Data/df_flr_final_summary.csv") 
 

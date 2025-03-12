@@ -17,7 +17,8 @@ library(lme4)
 
 setwd("~/Desktop/Thesis_25")
 
-WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
+#WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
+df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 
 
 priors <- c(
@@ -25,7 +26,7 @@ priors <- c(
   set_prior("normal(0, 5)", class = "Intercept")  # Prior for the intercept
 )
 
-test.data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
+test.data <- df_flr_final_summary  %>% dplyr::select(latitude, longitude, species, preceding_temp,
                                                preceding_precip, elevation, doy, precip, temp)
 
 
