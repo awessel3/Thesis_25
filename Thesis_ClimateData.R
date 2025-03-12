@@ -9,6 +9,20 @@ library(prism)
 setwd("/Users/avawessel/Desktop/Thesis_25")
 getwd()
 
+# Full Dataset-----
+
+all_flr <- read.csv("Raw Full Dataset/full_mar1125_1.csv")
+no_ann <- read.csv("Raw Full Dataset/full_mar1225_2.csv")
+dim(all_flr)
+dim(no_ann)
+
+match_check <- no_ann %>%
+  filter(id %in% all_flr)
+
+df_flr_final <- full_join(all_flr, no_ann)
+
+dim(df_flr_final)
+
 # Test Dataset ------
 
 flowering_WVPT <- read.csv("Data/flowering_WVPT.csv")
@@ -20,9 +34,7 @@ selected_species = c("Plectritis congesta", "Collinsia grandiflora",
 
 flowering_WVPT <- flowering_WVPT %>% filter(scientific_name %in% selected_species)
 
-#explore test 
-ggplot(flowering_WVPT, aes(y = observed_on, x = latitude)) + geom_point()
-###
+### -----
 
 
 month <- seq(as.Date("2020-01-01"), 
@@ -35,15 +47,12 @@ winter.months <- seq(as.Date("2020-09-01"),
                      by = "1 month")
 winter.month_label <- lubridate::month(winter.months, label = TRUE)
 
-str(annual_WVPT)
-
-head(flowering_WVPT$observed_on)
 
 
 
-annual_WVPT <- flowering_WVPT %>%
+df_flr_final <- df_flr_final %>%
   #replace(is.na(.),"0") %>%  # not working - why?  because it's a character field and was trying to put number
-  mutate(observed_on=mdy(observed_on)
+  mutate(observed_on=ymd(observed_on)
          ,year=as.numeric(year(observed_on))
          ,month=month(observed_on)
          ,doy = yday(observed_on)
@@ -51,27 +60,27 @@ annual_WVPT <- flowering_WVPT %>%
   arrange(year,doy) %>%
   rename(species=scientific_name)
 
-ggplot(annual_WVPT, aes(x = latitude, y = doy)) + geom_point()
+ggplot(df_flr_final, aes(x = latitude, y = doy)) + geom_point()
 
 
 
-annual_WVPT <- mutate(annual_WVPT,
+df_flr_final <- mutate(df_flr_final,
                  winter.year = ifelse(month>8, year+1, year)
                  ,winter.month = ifelse(month>8, month-8, month+4)
                  ,winter.day = ifelse(month>8, doy-243, doy+120)
 )
-head(annual_WVPT ,2)
-str(annual_WVPT)
-table(annual_WVPT$winter.month)
+head(df_flr_final ,2)
+str(df_flr_final)
+table(df_flr_final$winter.month)
 
-annual_WVPT <- annual_WVPT  %>%  mutate(year.factor=as.factor(year), 
+df_flr_final <- df_flr_final  %>%  mutate(year.factor=as.factor(year), 
                              winter.year=as.factor(winter.year),
                              field.flowering.phenology = 1)
 
-annual_WVPT <- droplevels(filter(annual_WVPT , year > 2018, year<2024))
+df_flr_final <- droplevels(filter(df_flr_final , year >= 2018, year<=2024))
 
 #explore 
-ggplot(annual_WVPT, aes(x = latitude, y = doy)) + geom_point()
+ggplot(df_flr_final, aes(x = latitude, y = doy)) + geom_point()
 
 #printing out weird, processing error occuring during these steps? 
 ####
@@ -83,25 +92,25 @@ prism_set_dl_dir("Data/prism_data")
 
 get_prism_monthlys(
   type = "tmean", 
-  year=2018:2023,
+  year=2017:2024,
   mon=1:12,
   keepZip = FALSE
 )
 get_prism_monthlys(
   type = "tmin", 
-  year=2018:2023,
+  year=2017:2024,
   mon=1:12,
   keepZip = FALSE
 )
 get_prism_monthlys(
   type = "tmax", 
-  year=2018:2023,
+  year=2017:2024,
   mon=1:12,
   keepZip = FALSE
 )
 get_prism_monthlys(
   type = "ppt", 
-  year=2018:2023,
+  year=2017:2024,
   mon=1:12,
   keepZip = FALSE
 )
@@ -111,7 +120,7 @@ sub.tmean <- prism_archive_subset("tmean", "monthly", mon = 1:12)
 
 RS <- pd_stack(sub.tmean) ##raster file   # (prism_stack and ls_prism_data deprecated)
 
-flr.test <- annual_WVPT
+flr.test <- df_flr_final
 flr.spdf <-   SpatialPointsDataFrame(coords=flr.test[,c('longitude','latitude')], 
                                     data=flr.test, proj4string = CRS("+proj=longlat +ellps=WGS84 +no_defs"))
 
@@ -199,7 +208,7 @@ print(flr.dat, width=Inf, n=2)
 
 # 
 #saveRDS(dat, file="data/dat_noClimate.rds") 
-saveRDS(flr.dat, file="data/WVPT_Annual_wclimate.rds") 
+saveRDS(flr.dat, file="data/df_flr_final_wClimate.rds") 
 
 print(flr.dat, n=2, width=Inf)
 
