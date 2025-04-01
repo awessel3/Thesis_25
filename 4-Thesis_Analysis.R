@@ -28,9 +28,10 @@ see_matches <- inner_join(WVPT_species, trait_species, by = 'Species.Name')
 
 ## Prepping data for model 
 
-WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
+#WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
+df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 
-data <- WVPT_climate_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
+data <- df_flr_final_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
                                                preceding_precip, elevation, doy)
 data <- na.omit(data)
 
@@ -71,7 +72,7 @@ formula <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
 # simpliest and best compared to fit0 and fit2
 # fit1
 formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
-  pprecip_sc +(1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
+  pprecip_sc + (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
 # pass 2: remove cross-level interaction between temp & elev - pass 1 perfomed sig better. 
 #fit2
@@ -90,7 +91,7 @@ formula5 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc + ppre
 
 
 fit <- brm(
-  formula = formula5,
+  formula = formula,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -109,10 +110,12 @@ pp_check(fit, plotfun = "dens_overlay")
 bayesplot::ppc_scatter_avg(y = data$doy_sc, yrep = posterior_predict(fit))
 plot(fit)
 
+
+
 pairs(fit, np = nuts_params(fit))
 
 #original model save
-#saveRDS(fit, file = "Data/fit0.RDS")
+saveRDS(fit, file = "Data/fit0.RDS")
 fit0 <- readRDS("Data/fit0.RDS")  
 
 #pass 1 save 
@@ -144,10 +147,11 @@ as_draws_df(fit) %>% head(3)
 lp_draws <- linpred_draws(fit, newdata = original_data)
 
 
-original_data <- fit3$data 
+original_data <- fit$data 
 
-fit <- fit3
+#fit <- fit3
 spp <- unique(original_data$species)
+spp
 
 ## Initial Plot Creation ----
 # Create a new dataset to predict over

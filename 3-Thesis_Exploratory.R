@@ -20,17 +20,16 @@ setwd("~/Desktop/Thesis_25")
 #WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
 df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 
-
-priors <- c(
-  set_prior("normal(0, 500)", class = "b"),           # Prior for fixed effects (slope)
-  set_prior("normal(0, 5)", class = "Intercept")  # Prior for the intercept
-)
-
 test.data <- df_flr_final_summary  %>% dplyr::select(latitude, longitude, species, preceding_temp,
                                                preceding_precip, elevation, doy, precip, temp)
+test.data <- na.omit(test.data)
 
+ggplot(data = test.data, 
+       aes(x = preceding_temp, y = doy)) + 
+  geom_point() 
 
 #Exploratory just plotting against each other
+#print out for each species 
 
 precip <- ggplot(data = test.data, 
                  aes(x = preceding_precip, y = doy)) + 
@@ -56,6 +55,7 @@ lat <- ggplot(data = test.data,
   geom_smooth(method = "lm", se = FALSE)
 lat
 
+#All_exploreplots
 lat + elev + temp + precip
 
 #Against eachother
@@ -81,9 +81,66 @@ lat_precip <- ggplot(data = test.data,
   geom_point() + 
   geom_smooth(method = "lm", se = FALSE)
 
-
+#All_cross_exploreplots
 precip_temp + temp_lat + elev_temp + lat_precip
 
+#Species Specific
+
+species <- unique(test.data$species)
+
+#temp
+#SS_TempDOY_explore
+ggplot(test.data, aes( x = preceding_temp, y = doy)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) + 
+    facet_wrap(~species)
+    
+#precip
+#SS_precipDOY_explore
+ggplot(test.data, aes( x = preceding_precip, y = doy)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) + 
+  facet_wrap(~species)
+
+#lat
+#SS_latDOY_explore
+ggplot(test.data, aes( x = latitude, y = doy)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) + 
+  facet_wrap(~species)
+
+#elev
+#SS_elevDOY_explore
+ggplot(test.data, aes( x = elevation, y = doy)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) + 
+  facet_wrap(~species)
+
+#Species Specific Cross-interaction
+#SS_TempPrecip_explore
+ggplot(test.data, aes( x = preceding_precip, y = preceding_temp)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) + 
+  facet_wrap(~species)
+
+
+#SS_templat_explore
+ggplot(test.data, aes( x = preceding_temp, y = latitude)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) + 
+  facet_wrap(~species)
+
+#SS_elevTemp_explore
+ggplot(test.data, aes( x = elevation, y = preceding_temp)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) + 
+  facet_wrap(~species)
+
+#SS_latPrecip_explore
+ggplot(test.data, aes( x = latitude, y = preceding_precip)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) + 
+  facet_wrap(~species)
 
 
 # Exploratory with simpler regressions

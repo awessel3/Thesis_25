@@ -9,6 +9,8 @@ library(prism)
 setwd("/Users/avawessel/Desktop/Thesis_25")
 getwd()
 
+
+
 # Full Dataset-----
 
 all_flr <- read.csv("Raw Full Dataset/full_mar1125_1.csv")
@@ -19,6 +21,7 @@ dim(no_ann)
 match_check <- no_ann %>%
   filter(id %in% all_flr)
 
+
 df_flr_final <- full_join(all_flr, no_ann)
 
 dim(df_flr_final)
@@ -26,6 +29,7 @@ dim(df_flr_final)
 # Test Dataset ------
 
 flowering_WVPT <- read.csv("Data/flowering_WVPT.csv")
+flowering_WVPT
 
 selected_species = c("Plectritis congesta", "Collinsia grandiflora", 
                      "Plagiobothrys figuratus", "Clarkia purpurea", 
@@ -207,6 +211,11 @@ print(flr.dat, width=Inf, n=2)
 
 dim(df_flr_final)
 dim(flr.dat)
+
+flr.dat <- na.omit(flr.dat)
+ggplot(flr.dat, aes(x = temp, y = doy)) + geom_point()
+
+
 
 # 
 #saveRDS(dat, file="data/dat_noClimate.rds") 
