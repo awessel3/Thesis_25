@@ -12,6 +12,8 @@ library(loo)
 # Analysis R Script 
 library(brms)
 
+setwd("~/Desktop/Thesis_25")
+
 trait_species <- read.csv("trait_species.csv")
 WVPT_species <- read.csv("WVPT_species3.3.csv")
 traits_full <- read.csv('Traits.csv')
@@ -30,10 +32,12 @@ see_matches <- inner_join(WVPT_species, trait_species, by = 'Species.Name')
 
 #WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
 df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
+unique(df_flr_final_summary$species)
 
 data <- df_flr_final_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
                                                preceding_precip, elevation, doy)
 data <- na.omit(data)
+unique(data$species)
 
 #scaling 
 doy_num <- as.numeric(data$doy)

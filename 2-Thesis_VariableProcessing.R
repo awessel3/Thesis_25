@@ -78,7 +78,7 @@ df_flr_final_summary <- calculateClimate(df_flr_final_complete)
 
 #removing Myosotis dubia, I guess I accidentally added it 
 df_flr_final_summary <- df_flr_final_summary %>% filter(species != "Myosotis dubia")
-
+unique(df_flr_final_summary$species)
 
 ggplot(df_flr_final_summary, aes(x = preceding_temp, y = doy)) + geom_point()
 
