@@ -110,7 +110,9 @@ fit <- brm(
 )
 
 summary(fit)
+#pp_check_fit#
 pp_check(fit, plotfun = "dens_overlay")
+
 bayesplot::ppc_scatter_avg(y = data$doy_sc, yrep = posterior_predict(fit))
 plot(fit)
 
