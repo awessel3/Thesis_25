@@ -180,6 +180,7 @@ fitted.pred <- fitted.pred %>%
 
 
 # Plot
+#fit#_LatDOY_plot
 ggplot(fitted.pred, aes(x = latitude , y = DOY_pred, color=species))+
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
   labs(y="Day of Year flowering", x="Latitude") +
@@ -209,6 +210,7 @@ fitted.pred <- fitted.pred %>%
 
 
 # Plot
+# fit#_TempDOY_plot
 ggplot(fitted.pred, aes(x = preceding_temp , y = DOY_pred, color = species))+
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
   labs(y="Day of Year flowering", x="preceding temperature") +
@@ -236,10 +238,18 @@ fitted.pred <- fitted.pred %>%
          latitude = (latitude_sc * latitude_scale) + latitude_center)
 
 # Plot
+# fit#_TempLatDOY_plot
 ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
+  theme_minimal()
+
+ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
+  labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
+  scale_fill_brewer(palette = "Greys", guide = "none") +
+  facet_wrap(~species) +
   theme_minimal()
 
 #Temp|Elevation vs DOY
@@ -262,6 +272,7 @@ fitted.pred <- fitted.pred %>%
          elevation = (elevation_sc * elevation_scale) + elevation_center)
 
 # Plot
+#fit#_TempElevDOY_plot
 ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(elevation, 0)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +

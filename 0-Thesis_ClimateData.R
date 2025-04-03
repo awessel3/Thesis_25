@@ -22,10 +22,20 @@ match_check <- no_ann %>%
   filter(id %in% all_flr)
 
 
-df_flr_final <- full_join(all_flr, no_ann)
+df_flr_nohist <- full_join(all_flr, no_ann)
 
+dim(df_flr_nohist)
+
+life_hist <- read.csv("Data/Flowering_WVPT_life_history.csv")
+life_hist
+
+df_flr_nohist <- rename(df_flr_nohist, species = scientific_name)
+
+df_flr_final <- left_join(df_flr_nohist, life_hist, by = "species")
+
+
+head(df_flr_final)
 dim(df_flr_final)
-
 # Test Dataset ------
 
 flowering_WVPT <- read.csv("Data/flowering_WVPT.csv")
@@ -61,8 +71,7 @@ df_flr_final <- df_flr_final %>%
          ,month=month(observed_on)
          ,doy = yday(observed_on)
   ) %>%
-  arrange(year,doy) %>%
-  rename(species=scientific_name)
+  arrange(year,doy) 
 
 ggplot(df_flr_final, aes(x = latitude, y = doy)) + geom_point()
 
