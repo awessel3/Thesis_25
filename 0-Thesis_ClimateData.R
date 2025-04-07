@@ -13,29 +13,36 @@ getwd()
 
 # Full Dataset-----
 
-all_flr <- read.csv("Raw Full Dataset/full_mar1125_1.csv")
-no_ann <- read.csv("Raw Full Dataset/full_mar1225_2.csv")
+all_flr <- read.csv("Raw Full Dataset/full_apr725_1.csv")
+length(unique(all_flr$scientific_name))
+all_flr$scientific_name <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", all_flr$scientific_name)
+length(unique(all_flr$scientific_name))
+no_ann <- read.csv("Raw Full Dataset/full_apr725_2.csv")
+no_ann$scientific_name <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", no_ann$scientific_name)
+length(unique(no_ann$scientific_name))
 dim(all_flr)
 dim(no_ann)
 
 match_check <- no_ann %>%
   filter(id %in% all_flr)
-
+match_check
 
 df_flr_nohist <- full_join(all_flr, no_ann)
-
+unique(df_flr_nohist$scientific_name)
 dim(df_flr_nohist)
 
 life_hist <- read.csv("Data/Flowering_WVPT_life_history.csv")
 life_hist
+unique(life_hist$species)
+dim(life_hist)
 
 df_flr_nohist <- rename(df_flr_nohist, species = scientific_name)
 
 df_flr_final <- left_join(df_flr_nohist, life_hist, by = "species")
-
-
 head(df_flr_final)
 dim(df_flr_final)
+length(unique(df_flr_final$species))
+
 # Test Dataset ------
 
 flowering_WVPT <- read.csv("Data/flowering_WVPT.csv")
@@ -72,6 +79,7 @@ df_flr_final <- df_flr_final %>%
          ,doy = yday(observed_on)
   ) %>%
   arrange(year,doy) 
+dim(df_flr_final)
 
 ggplot(df_flr_final, aes(x = latitude, y = doy)) + geom_point()
 
@@ -137,7 +145,7 @@ flr.test <- df_flr_final
 flr.spdf <-   SpatialPointsDataFrame(coords=flr.test[,c('longitude','latitude')], 
                                     data=flr.test, proj4string = CRS("+proj=longlat +ellps=WGS84 +no_defs"))
 
-flr.clim <- extract(RS, flr.spdf,  fun=mean, na.rm=TRUE, sp=TRUE) 
+flr.clim <- raster::extract(RS, flr.spdf,  fun=mean, na.rm=TRUE, sp=TRUE) 
 flr.clim <- as.data.frame(flr.clim)
 head(flr.clim,2); dim(flr.clim)
 table(flr.clim$winter.month)
@@ -179,7 +187,7 @@ print(flr.dat.tmean, width=Inf, n=2)
 sub.ppt <- prism_archive_subset("ppt", "monthly", mon = 1:12)
 RS <- pd_stack(sub.ppt) 
 
-flr.clim <- extract(RS, flr.spdf,  fun=sum, na.rm=TRUE, sp=TRUE) 
+flr.clim <- raster::extract(RS, flr.spdf,  fun=sum, na.rm=TRUE, sp=TRUE) 
 flr.clim <- as.data.frame(flr.clim)
 head(flr.clim,2)
 

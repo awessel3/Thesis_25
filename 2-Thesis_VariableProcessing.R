@@ -67,8 +67,6 @@ calculateClimate <- function(df) {
 unique(df_flr_final_complete$species)
 length(unique(df_flr_final_complete$species))
 
-df_flr_final_complete$species <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", df_flr_final_complete$species)
-
 unique(df_flr_final_complete$species)
 length(unique(df_flr_final_complete$species))
 
