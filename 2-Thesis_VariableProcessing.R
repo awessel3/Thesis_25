@@ -62,7 +62,6 @@ calculateClimate <- function(df) {
     dplyr::select(-preceding_months, -observation_month)
 }
 
-# using regex to disregard subspecies 
 
 unique(df_flr_final_complete$species)
 length(unique(df_flr_final_complete$species))
@@ -73,10 +72,6 @@ length(unique(df_flr_final_complete$species))
 
 #WVPT_climate_summary <- calculateClimate(WVPT_Annual_complete)
 df_flr_final_summary <- calculateClimate(df_flr_final_complete)
-
-#removing Myosotis dubia, I guess I accidentally added it 
-df_flr_final_summary <- df_flr_final_summary %>% filter(species != "Myosotis dubia")
-unique(df_flr_final_summary$species)
 
 ggplot(df_flr_final_summary, aes(x = preceding_temp, y = doy)) + geom_point()
 

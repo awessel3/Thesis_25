@@ -21,12 +21,8 @@ setwd("~/Desktop/Thesis_25")
 df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 
 test.data <- df_flr_final_summary  %>% dplyr::select(latitude, longitude, species, preceding_temp,
-                                               preceding_precip, elevation, doy, precip, temp)
+                                               preceding_precip, elevation, doy, precip, temp, life_history)
 test.data <- na.omit(test.data)
-
-ggplot(data = test.data, 
-       aes(x = preceding_temp, y = doy)) + 
-  geom_point() 
 
 #Exploratory just plotting against each other
 #print out for each species 

@@ -27,7 +27,7 @@ trait_species <- trait_species %>%
 trait_species <- rename(trait_species, Species.Name = Full.species.name)
 
 see_matches <- inner_join(WVPT_species, trait_species, by = 'Species.Name')
-
+see_matches 
 ## Prepping data for model 
 
 #WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
