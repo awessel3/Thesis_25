@@ -35,7 +35,7 @@ df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 unique(df_flr_final_summary$species)
 
 data <- df_flr_final_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
-                                               preceding_precip, elevation, doy)
+                                               preceding_precip, elevation, doy, life_history)
 data <- na.omit(data)
 unique(data$species)
 
@@ -75,8 +75,8 @@ formula <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
 # pass 1: remove cross-level interaction between temp & lat - 
 # simpliest and best compared to fit0 and fit2
 # fit1
-formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
-  pprecip_sc + (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
+formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + elevation_sc +
+  pprecip_sc + life_history + (1 + latitude_sc + ptemp_sc + elevation_sc + pprecip_sc | species)
 
 # pass 2: remove cross-level interaction between temp & elev - pass 1 perfomed sig better. 
 #fit2
@@ -95,7 +95,7 @@ formula5 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc + ppre
 
 
 fit <- brm(
-  formula = formula,
+  formula = formula1,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -245,6 +245,7 @@ ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(l
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
+# SS_fit#_TempLatDOY_plot
 ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
@@ -279,6 +280,14 @@ ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(e
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
+# SS_fit#_TempElevDOY_plot
+ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(elevation, 2)))) +
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
+  labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
+  scale_fill_brewer(palette = "Greys", guide = "none") +
+  facet_wrap(~species) +
+  theme_minimal()
+
 
 
 # Creating phenological sensitivity plot ----
@@ -306,7 +315,7 @@ species_temp_ps <- fit %>%
     mean_sensitivity = mean(r_species),  
     lower_95 = quantile(r_species, 0.025),
     upper_95 = quantile(r_species, 0.975)
-  )
+  ) 
 
 # unscaling estimated parameters 
 species_temp_ps <- species_temp_ps %>%
@@ -325,8 +334,9 @@ mean_doy <- original_data %>%
 
 # Merge data sets
 temp_ps_plot_dat <- left_join(species_temp_ps, mean_doy, by = 'species')
-temp_ps_plot_dat
+temp_ps_plot_dat <- left_join(temp_ps_plot_dat, life_hist, by = "species")
 
+# fit0_temp_PS_plot
 ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
   geom_point(size = 3, aes(color = species)) + 
   stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
@@ -334,8 +344,25 @@ ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = spe
   geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
 
 
+# removing Bidens frondosa  - why so high? 
+temp_ps_woBF <- temp_ps_plot_dat %>% 
+  filter(species != "Bidens frondosa")
 
+ggplot(temp_ps_woBF, aes(x = mean_doy, y = sensitivity_unscaled, color = life_history)) +
+  geom_point(size = 3, aes(color = life_history)) + 
+  stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
 
+# life history comparison plot 
 
+ps_life_hist <- temp_ps_woBF %>% 
+  group_by(life_history) %>% 
+  summarise(mean_sensitivity = mean(mean_sensitivity),
+            sensitivity_unscaled = mean(sensitivity_unscaled))
 
+ps_life_hist
 
+ggplot(ps_life_hist, aes(x = life_history, y = sensitivity_unscaled, color = life_history)) +
+  geom_point(size = 3, aes(color = life_history)) + 
+  geom_hline(yintercept = 0) 
