@@ -14,27 +14,37 @@ library(brms)
 
 setwd("~/Desktop/Thesis_25")
 
+df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 trait_species <- read.csv("trait_species.csv")
-WVPT_species <- read.csv("WVPT_species3.3.csv")
 traits_full <- read.csv('Traits.csv')
+traits_full$SpName <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", traits_full$SpName)
 
-trait_species <- trait_species %>%
-  mutate(Full.species.name = case_when(
-    Full.species.name == "Clarkia purpurea ssp. quadrivulnera" ~ "Clarkia purpurea",
-    TRUE ~ Full.species.name
-  ))
+traits_full <- rename(traits_full, species = SpName)
 
-trait_species <- rename(trait_species, Species.Name = Full.species.name)
 
-see_matches <- inner_join(WVPT_species, trait_species, by = 'Species.Name')
-see_matches 
+life_hist <- read.csv("Data/Flowering_WVPT_life_history.csv")
+spp <- unique(df_flr_final_summary$species)
+
+df_traits_flr <- traits_full %>%
+  filter(species %in% spp) 
+df_traits_flr_final <- left_join(df_traits_flr, life_hist, by = "species")
+
+length(unique(df_traits_flr_final$species))
+
+trait_hist_count <- df_traits_flr_final %>% 
+  group_by(life_history) %>% 
+  summarise(count = n())
+trait_hist_count <- count(df_traits_flr_final, c("annual"))
+trait_hist_count
+
 ## Prepping data for model 
 
-#WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
-df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 unique(df_flr_final_summary$species)
 
-data <- df_flr_final_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
+#Excluding species - either for low number of observations or skewing data 
+
+
+data <- df_flr_final_filtered %>% dplyr::select(latitude, longitude, species, preceding_temp,
                                                preceding_precip, elevation, doy, life_history)
 data <- na.omit(data)
 unique(data$species)
@@ -70,7 +80,7 @@ formula <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + 
   (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
-#altering model to leave on out to reconginze necessary complexity 
+#altering model to leave on out to recognize necessary complexity 
 
 # pass 1: 
 # fit1
@@ -82,20 +92,18 @@ formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + elevation_sc +
 formula2 <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + life_history + (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
-
 # pass 3: 
 #fit3 
 formula3 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + elevation_sc +
   pprecip_sc + life_history + (1 + ptemp_sc + latitude_sc +  elevation_sc + pprecip_sc | species)
 
-# pass 4: removing all fixed effects 
-formula4 <- doy_sc ~ 1 + (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
-
-formula5 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc + pprecip_sc + (1 | species)
+#pass 4:
+formula4 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
+  pprecip_sc + life_history + (1 | species)
 
 
 fit <- brm(
-  formula = formula3,
+  formula = formula4,
   data = data,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   control = list(adapt_delta = 0.99,
@@ -111,7 +119,7 @@ fit <- brm(
 
 summary(fit)
 #pp_check_fit#
-pp_check(fit1, plotfun = "dens_overlay")
+pp_check(fit, plotfun = "dens_overlay")
 
 bayesplot::ppc_scatter_avg(y = data$doy_sc, yrep = posterior_predict(fit))
 plot(fit)
@@ -130,31 +138,20 @@ fit1 <- readRDS("Data/fit1.RDS")
 fit2 <- readRDS("Data/fit2.RDS")  
 
 #pass 3 save 
-#saveRDS(fit, file = "Data/fit3.RDS")
+saveRDS(fit, file = "Data/fit3.RDS")
 fit3 <- readRDS("Data/fit3.RDS") 
-
-#pass4 save 
-#saveRDS(fit, file = "Data/fit4.RDS")
-fit4 <- readRDS("Data/fit4.RDS") 
-
-#pass5 save 
-#saveRDS(fit, file = "Data/fit5.RDS")
-fit5 <- readRDS("Data/fit5.RDS") 
 
 loo1 <- loo(fit1, fit2)
 loo1
 
- 
-as_draws_df(fit) %>% head(3)
 
-lp_draws <- linpred_draws(fit, newdata = original_data)
-
-
+fit <- fit2
 original_data <- fit$data 
-
-#fit <- fit3
 spp <- unique(original_data$species)
 spp
+life_history <- unique(original_data$life_history)
+life_history
+
 
 ## Initial Plot Creation ----
 # Create a new dataset to predict over
@@ -163,7 +160,8 @@ data.predict <- crossing(
   ptemp_sc = mean(original_data$ptemp_sc), # temperature range
   pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 5),
-  species = spp)
+  species = spp, 
+  life_history = life_history)
 
 
 # make predictions using the fitted model
@@ -192,7 +190,8 @@ data.predict <- crossing(
   ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
   pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
-  species = spp
+  species = spp,
+  life_history = life_history
   )
 
 
@@ -222,7 +221,8 @@ data.predict <- crossing(
   ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
   pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 5),
-  species = spp
+  species = spp,
+  life_history = life_history
 )
 
 # Make predictions using the fitted model
@@ -257,7 +257,8 @@ data.predict <- crossing(
   ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
   pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
-  species = spp
+  species = spp,
+  life_history = life_history
 )
 
 # Make predictions using the fitted model
@@ -332,8 +333,10 @@ mean_doy <- original_data %>%
 # Merge data sets
 temp_ps_plot_dat <- left_join(species_temp_ps, mean_doy, by = 'species')
 temp_ps_plot_dat <- left_join(temp_ps_plot_dat, life_hist, by = "species")
+temp_ps_plot_dat
 
-# fit0_temp_PS_plot
+
+# fit#_temp_PS_plot
 ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
   geom_point(size = 3, aes(color = species)) + 
   stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
@@ -353,13 +356,24 @@ ggplot(temp_ps_woBF, aes(x = mean_doy, y = sensitivity_unscaled, color = life_hi
 
 # life history comparison plot 
 
-ps_life_hist <- temp_ps_woBF %>% 
+# Extract posterior draws for the life history (perennial effect)
+life_history_post <- fit %>%
+  spread_draws(b_life_historyperennial)
+
+head(life_history_post)
+
+
+ps_life_hist <- temp_ps_woBF %>%
   group_by(life_history) %>% 
-  summarise(mean_sensitivity = mean(mean_sensitivity),
-            sensitivity_unscaled = mean(sensitivity_unscaled))
+  summarise(
+    mean_sensitivity = mean(sensitivity_unscaled, na.rm = TRUE),  
+    lower_95 = quantile(sensitivity_unscaled, 0.025, na.rm = TRUE),  
+    upper_95 = quantile(sensitivity_unscaled, 0.975, na.rm = TRUE))
 
 ps_life_hist
 
-ggplot(ps_life_hist, aes(x = life_history, y = sensitivity_unscaled, color = life_history)) +
-  geom_point(size = 3, aes(color = life_history)) + 
-  geom_hline(yintercept = 0) 
+ggplot(ps_life_hist, aes(x = life_history, y = mean_sensitivity, color = life_history, group = life_history)) +
+  geom_point(size = 3, aes(color = life_history)) +  
+  geom_errorbar(aes(ymin = lower_95, ymax = upper_95), width = 0.2, size = 0.7) +  
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +  
+  theme(legend.position = "none")

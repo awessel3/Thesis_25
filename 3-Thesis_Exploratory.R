@@ -10,19 +10,35 @@ library(ggplot2)
 library(ggeffects)
 library(GGally)
 
-
-# Analysis R Script 
-library(brms)
-library(lme4)
-
 setwd("~/Desktop/Thesis_25")
 
 #WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
 df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
+excluded <- c("Sidalcea malviflora", 'Bidens frondosa')
+specific_id <- c("126237225")
+sum(df_flr_final_summary$id == "126237225")
 
-test.data <- df_flr_final_summary  %>% dplyr::select(latitude, longitude, species, preceding_temp,
+df_flr_final_filtered <- df_flr_final_summary %>%
+  filter(!(species %in% excluded)) %>% 
+  filter(id != specific_id)
+dim(df_flr_final_filtered)
+sum(df_flr_final_filtered$id == "126237225")
+sum(df_flr_final_filtered$species == 'Bidens frondosa')
+
+test.data <- df_flr_final_filtered  %>% dplyr::select(latitude, longitude, species, preceding_temp,
                                                preceding_precip, elevation, doy, precip, temp, life_history)
 test.data <- na.omit(test.data)
+
+
+#Total observations per species 
+
+species_sum <- test.data %>% 
+  group_by(species, life_history) %>% 
+  summarise(total_observations = n()) 
+species_sum
+
+#total_observations_plot
+ggplot(species_sum, aes(x=  total_observations, y = species, fill = life_history)) + geom_col()
 
 #Exploratory just plotting against each other
 #print out for each species 
