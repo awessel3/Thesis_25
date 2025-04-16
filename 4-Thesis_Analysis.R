@@ -11,6 +11,7 @@ library(loo)
 
 # Analysis R Script 
 library(brms)
+library(ggridges)
 
 setwd("~/Desktop/Thesis_25")
 
@@ -83,10 +84,9 @@ formula <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
 
 #altering model to leave on out to recognize necessary complexity 
 
-# pass 1: 
-# fit1
-formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + elevation_sc +
-  pprecip_sc + life_history + (1 + latitude_sc + ptemp_sc + elevation_sc + pprecip_sc | species)
+# pass 1: fit1
+#formula1 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + elevation_sc +
+ # pprecip_sc + life_history + (1 + latitude_sc + ptemp_sc + elevation_sc + pprecip_sc | species)
 
 # pass 2: 
 #fit2
@@ -106,11 +106,14 @@ formula4 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
 formula_full <- doy_sc ~ 1 + ptemp_sc * latitude_sc * elevation_sc * pprecip_sc * life_history +
   (1 + latitude_sc * ptemp_sc * elevation_sc * pprecip_sc | species)
 
+#pass 6: 
+
+
 
 fit <- brm(
   formula = formula_full,
   data = data,
-  family = gaussian(),  # Assuming DOY is approximately normally distributed
+  family = gaussian(),  
   #control = list(adapt_delta = 0.99, max_treedepth = 15),
   save_pars = save_pars(all = TRUE),
   chains = 4,
@@ -145,11 +148,16 @@ fit2 <- readRDS("Data/fit2.RDS")
 saveRDS(fit, file = "Data/fit3.RDS")
 fit3 <- readRDS("Data/fit3.RDS") 
 
-loo1 <- loo(fit1, fit2)
+
+saveRDS(fit, file = "Data/fit_full.RDS")
+fit_full <- readRDS("Data/fit_full.RDS") 
+
+loo1 <- loo(fit_full)
 loo1
 
 
-fit <- fit2
+#prep for plotting 
+fit <- fit_full
 original_data <- fit$data 
 spp <- unique(original_data$species)
 spp
@@ -292,7 +300,7 @@ ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(e
 
 
 
-# Creating phenological sensitivity plot ----
+## Creating phenological sensitivity plot ----
 
 ## Random Slopes just for Temp 
 # view variables that can be extracted 
@@ -341,8 +349,8 @@ temp_ps_plot_dat
 
 
 # fit#_temp_PS_plot
-ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
-  geom_point(size = 3, aes(color = species)) + 
+ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = life_history)) +
+  geom_point(size = 3, aes(color = life_history)) + 
   stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
   geom_hline(yintercept = 0) +
   geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
@@ -367,7 +375,7 @@ life_history_post <- fit %>%
 head(life_history_post)
 
 
-ps_life_hist <- temp_ps_woBF %>%
+ps_life_hist <- temp_ps_plot_dat %>%
   group_by(life_history) %>% 
   summarise(
     mean_sensitivity = mean(sensitivity_unscaled, na.rm = TRUE),  
@@ -381,3 +389,63 @@ ggplot(ps_life_hist, aes(x = life_history, y = mean_sensitivity, color = life_hi
   geom_errorbar(aes(ymin = lower_95, ymax = upper_95), width = 0.2, size = 0.7) +  
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +  
   theme(legend.position = "none")
+
+
+
+## from Jeffs scripts - ridge plots of posterior distributions ----
+fixef_draws <- fit_full %>%
+  spread_draws(`b_.*`, regex = TRUE)
+fixef_draws 
+
+fixef_long <- fixef_draws %>%
+  pivot_longer(
+    cols = starts_with("b_"),
+    names_to = "term",
+    values_to = "estimate"
+  ) %>%
+  mutate(
+    # Remove 'b_' prefix and replace colons with multiplication symbol for clarity
+    term_clean = term %>%
+      str_remove("^b_") %>%
+      str_replace_all(":", " × ") %>%
+      str_replace_all("_sc", "")  # remove "_sc" if you want to simplify variable names
+  )
+
+fixef_probs <- fixef_long %>%
+  group_by(term_clean) %>%
+  summarise(
+    prob_diff0 = mean(estimate > 0) %>% {pmax(., 1 - .)},
+    .groups = "drop"
+  ) %>%
+  mutate(
+    prob_label = paste0("P ≠ 0: ", round(prob_diff0, 2))
+  )
+
+fixef_ridges <- fixef_long %>%
+  left_join(fixef_probs, by = "term_clean") %>%
+  mutate(term_ordered = fct_reorder(term_clean, prob_diff0))
+
+# Step 3: Plot
+ggplot(fixef_ridges, aes(x = estimate, y = term_ordered, fill = term_ordered)) +
+  geom_density_ridges(scale = 1.2, rel_min_height = 0.01, color = "white", alpha = 0.85) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray30") +
+  geom_text(
+    data = distinct(fixef_ridges, term_ordered, prob_label),
+    aes(x = -Inf, y = term_ordered, label = prob_label),
+    hjust = -0.05,
+    size = 4,
+    inherit.aes = FALSE
+  ) +
+  scale_fill_viridis_d(option = "C", begin = 0.2, end = 0.8) +
+  labs(
+    title = "Posterior Distributions of Fixed Effects",
+    x = "Posterior Estimate",
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_text(size = 12)
+  ) +
+  coord_cartesian(xlim = c(min(fixef_ridges$estimate), max(fixef_ridges$estimate) + 0.5))
