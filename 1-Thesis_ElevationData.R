@@ -6,8 +6,8 @@ library(sf)
 library(elevatr)
 library(ggplot2)
 
-setwd("/Users/avawessel/Desktop/Thesis_25")
-getwd()
+# setwd("/Users/avawessel/Desktop/Thesis_25")
+# getwd()
 
 # Retrieving Elevation Data R Script 
 
@@ -18,7 +18,7 @@ getwd()
 
 
 #full set
-df_flr_final_wClimate <- read_rds("Data/df_flr_final_wClimate.rds")
+df_flr_final_wClimate <- read_rds("Data/df_flr_final_wClimate_JD.rds")
 
 
 ## selecting coordinates ----
@@ -61,7 +61,7 @@ df_flr_final_complete <- df_flr_final_complete %>% dplyr::select(-geometry)
 # -private_latitude, -private_longitude,-species_guess, -common_name, -iconic_taxon_name
 
 
-saveRDS(df_flr_final_complete, file="Data/df_flr_final_complete.rds") 
+saveRDS(df_flr_final_complete, file="Data/df_flr_final_complete_JD.rds") 
 
-write_csv(df_flr_final_complete, file="Data/df_flr_final_complete.csv")
+write_csv(df_flr_final_complete, file="Data/df_flr_final_complete_JD.csv")
 
