@@ -46,17 +46,6 @@ ggplot(species_sum, aes(x=  total_observations, y = fct_reorder(species, total_o
 
 
   
-# get seasonal temps  
-
-  dat <- dat %>% 
-    rowwise() %>%
-      mutate(
-        winter.temp    = mean( c_across(tmean_1:tmean_6),       na.rm = TRUE),
-        spring.temp    = mean( c_across(tmean_6:tmean_9),       na.rm = TRUE),
-        winter.precip  = mean( c_across(ppt_1:ppt_6),           na.rm = TRUE),
-        spring.precip  = mean( c_across(ppt_6:ppt_9),           na.rm = TRUE)
-      ) %>%
-      ungroup()  
   
 # Pairs plots ----
 print(dat,n=2,width=Inf)

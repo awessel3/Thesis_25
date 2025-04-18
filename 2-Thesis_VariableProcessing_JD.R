@@ -104,6 +104,19 @@ test.data <- df_flr_final_filtered  %>% dplyr::select(latitude, longitude, speci
                                                       preceding_precip, elevation, doy, precip, temp, life_history)
 test.data <- na.omit(test.data)
 
+# get seasonal temps  
+
+df_flr_final_filtered <-df_flr_final_filtered %>% 
+  rowwise() %>%
+  mutate(
+    winter.temp    = mean( c_across(tmean_1:tmean_6),       na.rm = TRUE),
+    spring.temp    = mean( c_across(tmean_6:tmean_9),       na.rm = TRUE),
+    winter.precip  = mean( c_across(ppt_1:ppt_6),           na.rm = TRUE),
+    spring.precip  = mean( c_across(ppt_6:ppt_9),           na.rm = TRUE)
+  ) %>%
+  ungroup()  
+
+
 saveRDS(df_flr_final_filtered, file="Data/df_flr_final_filtered_JD.rds") 
 
 write_csv(df_flr_final_filtered, file="Data/df_flr_final_filtered_JD.csv") 

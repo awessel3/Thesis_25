@@ -38,11 +38,12 @@ trait_species <- rename(trait_species, Species.Name = Full.species.name)
 ## Prepping data for model 
 
 #WVPT_climate_summary <- read_rds("Data/WVPT_climate_summary.rds")
-df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
+df_flr_final_summary <- read_rds("Data/df_flr_final_filtered_JD.rds")
+ 
 unique(df_flr_final_summary$species)
+print(df_flr_final_summary, n=2, width=Inf)
 
-data <- df_flr_final_summary %>% dplyr::select(latitude, longitude, species, preceding_temp,
-                                               preceding_precip, elevation, doy, life_history)
+data <- df_flr_final_summary %>% dplyr::select(latitude, longitude, species, spring.temp, spring.precip, winter.temp, winter.precip, elevation, doy, life_history)
 data <- na.omit(data)
 unique(data$species)
 
@@ -50,11 +51,11 @@ unique(data$species)
 data <- data %>% mutate(
   doy_sc = as.vector(scale(doy)),
   latitude_sc = as.vector(scale(latitude)),
-  ptemp_sc = as.vector(scale(preceding_temp)),
-  pprecip_sc = as.vector(scale(preceding_precip)),
+  ptemp_sc = as.vector(scale(spring.temp)),
+  pprecip_sc = as.vector(scale(spring.precip)),
   elevation_sc = as.vector(scale(elevation))
 )
-head(data)
+print(data,width=Inf,n=2)
 
 # Notes ----
 # save traceplots
@@ -66,10 +67,6 @@ lowerFn <- function(data, mapping, method = "lm", ...) {
   p
 }
 
-ggpairs(data, columns=c("doy_sc","latitude_sc","ptemp_sc" , "elevation_sc","pprecip_sc" ), lower = list(continuous = wrap(lowerFn, method = "lm")),
-        diag = list(continuous = wrap("barDiag", colour = "blue")),
-        upper = list(continuous = wrap("cor", size = 10)))
-ggsave(filename = "Figures/raw_correlations.pdf", width = 6, height = 6)
 
 # Models ----
 formula_full <- doy_sc ~ 1 + SPEI * latitude_sc * elevation_sc * life_history + 
@@ -877,8 +874,8 @@ fitted.pred <- fitted.pred %>%
   mutate(DOY_pred = (DOY_pred_sc * sd(data$doy)) + mean(data$doy)
          ,latitude = (latitude_sc * sd(data$latitude)) + mean(data$latitude)
          ,elevation = (elevation_sc * sd(data$elevation)) + mean(data$elevation)
-         ,ptemp = (ptemp_sc * sd(data$preceding_temp)) + mean(data$preceding_temp)
-         ,pprecip = (pprecip_sc * sd(data$preceding_precip)) + mean(data$preceding_precip)
+         ,ptemp = (ptemp_sc * sd(data$spring.temp)) + mean(data$spring.temp)
+         ,pprecip = (pprecip_sc * sd(data$spring.precip)) + mean(data$spring.precip)
          )  
 head(fitted.pred)
 
@@ -914,13 +911,13 @@ fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, all
 
 fitted.pred <- fitted.pred %>%
   mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center)
+         spring.temp = (ptemp_sc * ptemp_scale) + ptemp_center)
 
 
 
 # Plot
 # fit#_TempDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp , y = DOY_pred, color = species))+
+ggplot(fitted.pred, aes(x = spring.temp , y = DOY_pred, color = species))+
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
   labs(y="Day of Year flowering", x="preceding temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -943,19 +940,19 @@ fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000
 
 fitted.pred <- fitted.pred %>%
   mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
+         spring.temp = (ptemp_sc * ptemp_scale) + ptemp_center,
          latitude = (latitude_sc * latitude_scale) + latitude_center)
 
 # Plot
 # fit#_TempLatDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
+ggplot(fitted.pred, aes(x = spring.temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
 # SS_fit#_TempLatDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
+ggplot(fitted.pred, aes(x = spring.temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -978,19 +975,19 @@ fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000
 
 fitted.pred <- fitted.pred %>%
   mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
+         spring.temp = (ptemp_sc * ptemp_scale) + ptemp_center,
          elevation = (elevation_sc * elevation_scale) + elevation_center)
 
 # Plot
 #fit#_TempElevDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(elevation, 0)))) +
+ggplot(fitted.pred, aes(x = spring.temp, y = DOY_pred, color = factor(round(elevation, 0)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
 # SS_fit#_TempElevDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(elevation, 2)))) +
+ggplot(fitted.pred, aes(x = spring.temp, y = DOY_pred, color = factor(round(elevation, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
