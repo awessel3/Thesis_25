@@ -148,8 +148,13 @@ flr.spdf <-   SpatialPointsDataFrame(coords=flr.test[,c('longitude','latitude')]
 flr.clim <- raster::extract(RS, flr.spdf,  fun=mean, na.rm=TRUE, sp=TRUE) 
 flr.clim <- as.data.frame(flr.clim)
 head(flr.clim,2); dim(flr.clim)
+str(flr.clim)
 table(flr.clim$winter.month)
 table(flr.clim$winter.year)
+
+# Unlist if any of the columns are lists
+flr.clim <- flr.clim %>% 
+  mutate(across(where(is.list), ~unlist(.)))
 
 flr_long <- pivot_longer(flr.clim, cols=starts_with("PRISM")) %>%
   separate(col=name, sep="_", into=c("r1","var","class","res","dd","r2")) %>%
@@ -158,6 +163,7 @@ flr_long <- pivot_longer(flr.clim, cols=starts_with("PRISM")) %>%
   dplyr::select(-c(r1,r2,latitude.1, longitude.1, dd,field.flowering.phenology))
 print(flr_long, width=Inf, n=2)
 table(flr_long$month.prism)
+str(flr_long)
 
 flr_long <- flr_long %>%  
   # filter(class != "provisional")%>%
@@ -170,17 +176,32 @@ flr_long <- flr_long %>%
 print(flr_long, width=Inf, n=2)
 table(flr_long$winter.month.prism)
 table(flr_long$winter.year.prism)
+str(flr_long)
 
 flr_long <- flr_long %>% 
   dplyr::select(-c(month.prism,winter.month.prism, year.prism,class))%>% # need to remove for the pivot_wider?
   print(flr_long, width=Inf, n=2)
 table(flr_long$winter.month)
+str(flr_long)
 
+#addition - currently temp 
+flr_long <- flr_long %>%
+  group_by(id, observed_on, latitude, longitude, species, life_history, year, 
+           month, doy, winter.year, winter.month, winter.day, year.factor, var, 
+           res, winter.year.prism, tmean.month) %>%
+  summarise(value = mean(value, na.rm = TRUE), .groups = "drop")
+
+flr.dat.tmean <- pivot_wider(flr_long, names_from = tmean.month, values_from = value) %>%
+  dplyr::select(-c(var))
+#
 
 # pivot back to wide
 flr.dat.tmean <- pivot_wider(flr_long, names_from=tmean.month, values_from=value) %>%
   dplyr::select(-c(var))
+
+
 print(flr.dat.tmean, width=Inf, n=2)
+str(flr.dat.tmean)
 
 
 ## Get precip ----
@@ -212,27 +233,45 @@ flr_long <- flr_long %>%
 print(flr_long, width=Inf, n=2)
 table(flr_long$winter.month)
 
+# new addition - temporary 
+flr_long <- flr_long %>%
+  group_by(id, observed_on, latitude, longitude, species, life_history, year, 
+           month, doy, winter.year, winter.month, winter.day, year.factor, var, 
+           res, winter.year.prism, ppt.month) %>%
+  summarise(value = mean(value, na.rm = TRUE), .groups = "drop")
+
+flr.dat.ppt <- pivot_wider(flr_long, names_from = ppt.month, values_from = value) %>%
+  dplyr::select(-c(var))
+# 
 
 flr.dat.ppt <- pivot_wider(flr_long, names_from=ppt.month, values_from=value) %>%
   dplyr::select(-c(var))
+
+
 print(flr.dat.ppt, width=Inf, n=2)
+str(flr.dat.ppt)
 
 flr.dat <- left_join(flr.dat.tmean, flr.dat.ppt)
+str(flr.dat)
+dim(flr.dat)
 print(flr.dat, width=Inf, n=2)
 
 flr.dat <-  flr.dat %>%
   rowwise()%>%
   mutate(precip=sum(c_across(ppt_1:ppt_9))
-         ,temp=mean(c_across(tmean_1:tmean_9)))
+         ,temp=mean(c_across(tmean_1:tmean_9))) %>% 
+  mutate(across(where(is.list), ~unlist(.)))
 print(flr.dat, width=Inf, n=2)
+str(flr.dat)
 
 dim(df_flr_final)
 dim(flr.dat)
+str(flr.dat)
 
 flr.dat <- na.omit(flr.dat)
+dim(flr.dat)
+str(flr.dat)
 ggplot(flr.dat, aes(x = temp, y = doy)) + geom_point()
-
-
 
 # 
 #saveRDS(dat, file="data/dat_noClimate.rds") 

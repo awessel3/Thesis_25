@@ -74,13 +74,90 @@ length(unique(df_flr_final_complete$species))
 #WVPT_climate_summary <- calculateClimate(WVPT_Annual_complete)
 df_flr_final_summary <- calculateClimate(df_flr_final_complete)
 
+# regular temp/precip no preceding, fixed window 
+# feb - may 
+spring_temp <- rowMeans(df_flr_final_complete[,c("tmean_6","tmean_7", "tmean_8",
+                                                 "tmean_9")])
+
+df_flr_final_summary$spring_temp <- spring_temp
+
+spring_precip <- rowMeans(df_flr_final_complete[,c("ppt_6","ppt_7", "ppt_8",
+                                                 "ppt_9")])
+
+df_flr_final_summary$spring_precip <- spring_precip
+
+
+ggplot(df_flr_final_summary, aes(x = spring_temp, y = doy)) + geom_point()
+ggplot(df_flr_final_summary, aes(x = spring_precip, y = doy)) + geom_point()
+ggplot(df_flr_final_summary, aes(x = preceding_precip, y = doy)) + geom_point()
 ggplot(df_flr_final_summary, aes(x = preceding_temp, y = doy)) + geom_point()
 
+# saving full files 
 saveRDS(df_flr_final_summary, file="Data/df_flr_final_summary.rds") 
-
 write_csv(df_flr_final_summary, file="Data/df_flr_final_summary.csv") 
 
 
+## Data Cleaning --- 
+df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
+excluded <- c("Sidalcea malviflora", 'Bidens frondosa')
+specific_id <- c("126237225")
+sum(df_flr_final_summary$id == "126237225")
+
+df_flr_final_filtered <- df_flr_final_summary %>%
+  filter(!(species %in% excluded)) %>% 
+  filter(id != specific_id)
+dim(df_flr_final_filtered)
+sum(df_flr_final_filtered$id == "126237225")
+sum(df_flr_final_filtered$species == 'Bidens frondosa')
+
+test.data <- df_flr_final_filtered  %>% dplyr::select(latitude, longitude, species, preceding_temp,
+                                                      preceding_precip, elevation, doy, precip, temp, life_history,
+                                                      spring_temp, spring_precip)
+test.data <- na.omit(test.data)
+dim(test.data)
+
+#saving filtered data 
+saveRDS(df_flr_final_filtered, file="Data/df_flr_final_filtered.rds") 
+write_csv(df_flr_final_filtered, file="Data/df_flr_final_filtered.csv") 
+
+
 #Adding SPEI 
+
+df_temp <- df_flr_final_summary %>%
+  pivot_longer(
+    cols = starts_with("tmean_"),
+    names_to = "month",
+    names_prefix = "p_",
+    values_to = "temp_value"
+  )
+
+df_precip <- df_flr_final_summary %>%
+  pivot_longer(
+    cols = starts_with("ppt_"),
+    names_to = "month",
+    names_prefix = "ppt_",
+    values_to = "precip_value"
+  )
+
+# Join on id and month
+df_combined <- df_temp %>%
+  left_join(df_precip, by = c("id", "month"))
+
+# Optional: convert month to integer
+df_combined <- df_combined %>%
+  mutate(month = as.integer(month))
+
+
+
+monthly0 <- df_long %>%
+  group_by(species, month) %>%
+  summarise(
+    tmean = mean(temperature, na.rm = TRUE),
+    precip = sum(precipitation),
+    lat = median(latitude)
+  ) %>%
+  as.data.frame()
+
+
 
 
