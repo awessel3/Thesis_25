@@ -19,7 +19,7 @@ getwd()
 
 #full set
 df_flr_final_wClimate <- read_rds("Data/df_flr_final_wClimate.rds")
-
+str(df_flr_final_wClimate)
 
 ## selecting coordinates ----
 elev <- df_flr_final_wClimate
@@ -59,7 +59,8 @@ df_flr_final_complete <- right_join(df_flr_final_wClimate, elev_add_unique, by =
 
 df_flr_final_complete <- df_flr_final_complete %>% dplyr::select(-geometry)
 # -private_latitude, -private_longitude,-species_guess, -common_name, -iconic_taxon_name
-
+dim(df_flr_final_complete)
+str(df_flr_final_complete)
 
 saveRDS(df_flr_final_complete, file="Data/df_flr_final_complete.rds") 
 
