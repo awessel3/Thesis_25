@@ -125,41 +125,79 @@ write_csv(df_flr_final_filtered, file="Data/df_flr_final_filtered.csv")
 
 #Adding SPEI 
 
+# Adding temperature and precipitation together in long format
+
 df_temp <- df_flr_final_summary %>%
   pivot_longer(
-    cols = starts_with("tmean_"),
-    names_to = "month",
-    names_prefix = "p_",
+    cols = starts_with("tmean_"), 
+    names_to = "temp_month", 
+    names_prefix = "tmean_", 
     values_to = "temp_value"
   )
 
+
 df_precip <- df_flr_final_summary %>%
   pivot_longer(
-    cols = starts_with("ppt_"),
-    names_to = "month",
-    names_prefix = "ppt_",
+    cols = starts_with("ppt_"), 
+    names_to = "precip_month", 
+    names_prefix = "ppt_", 
     values_to = "precip_value"
   )
 
-# Join on id and month
+# Ensure that month columns have the same format for joining
+df_temp <- df_temp %>%
+  mutate(month = as.numeric(gsub("tmean_", "", temp_month))) 
+
+df_precip <- df_precip %>%
+  mutate(month = as.numeric(gsub("ppt_", "", precip_month)))  
+
+
 df_combined <- df_temp %>%
-  left_join(df_precip, by = c("id", "month"))
+  left_join(df_precip %>% select(id, month, precip_value), by = c("id", "month"))
+dim(df_combined)
 
-# Optional: convert month to integer
-df_combined <- df_combined %>%
-  mutate(month = as.integer(month))
+df_combined <- df_combined %>%  rename(observed_month = month) %>% 
+  rename(month = temp_month)
+colnames(df_combined)
+str(df_combined)
+
+df_combined$month <- as.numeric(df_combined$month)
+str(df_combined)
+
+# get monthly values for just first observation
+monthly <- df_combined %>%
+  filter(id == unique(id)[1]) %>%
+  mutate(
+    pet = thornthwaite(temp_value, latitude[1]),
+    bal = precip_value - pet,  # Calculate the water balance
+    bal = as.vector(bal)       # Convert water balance to a vector (if needed)
+  )
+dim(df_combined)
+dim(monthly)
+colnames(monthly)
+str(monthly)
 
 
+dat1 <- ts(monthly$bal, start = c(2018, 1), frequency = 12)  
+head(dat1)
 
-monthly0 <- df_long %>%
-  group_by(species, month) %>%
-  summarise(
-    tmean = mean(temperature, na.rm = TRUE),
-    precip = sum(precipitation),
-    lat = median(latitude)
-  ) %>%
-  as.data.frame()
+# Calculate the 1-month SPEI
+spei1 <- spei(dat1, 1)
+dat1_spei1 <- as.data.frame(spei1$fitted)
+spei1
+# Calculate the 3-month SPEI
+spei3 <- spei(dat1, 3)
+dat1_spei3 <- as.data.frame(spei3$fitted)
 
+# Calculate the 6-month SPEI
+spei6 <- spei(dat1, 6)
+dat1_spei6 <- as.data.frame(spei6$fitted)
+
+# Add the SPEI values to the monthly data
+monthly$spei1 <- dat1_spei1$fitted
+monthly$spei3 <- dat1_spei3$fitted
+monthly$spei6 <- dat1_spei6$fitted
+head(monthly)
 
 
 
