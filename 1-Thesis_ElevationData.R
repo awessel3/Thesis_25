@@ -6,17 +6,21 @@ library(sf)
 library(elevatr)
 library(ggplot2)
 
+setwd("/Users/avawessel/Desktop/Thesis_25")
+getwd()
+
 
 # Retrieving Elevation Data R Script 
 
 #reading in All Species -- Test with all species in WVPT region 
 
-#test set
-#WVPT_Annual_wclimate <- read_rds("Data/WVPT_Annual_wclimate.rds")
-
 
 #full set
-df_flr_final_wClimate <- read_rds("Data/df_flr_final_wClimate_JD.rds")
+df_flr_final_complete <- read_rds("Data/df_flr_final_wClimate.rds")
+head(df_flr_final_complete)
+
+
+#df_flr_final_wClimate <- read_rds("Data/df_flr_final_wClimate_JD.rds")
 
 
 ## selecting coordinates ----
@@ -60,7 +64,9 @@ df_flr_final_complete <- df_flr_final_complete %>% dplyr::select(-geometry)
 dim(df_flr_final_complete)
 str(df_flr_final_complete)
 
-saveRDS(df_flr_final_complete, file="Data/df_flr_final_complete_JD.rds") 
+saveRDS(df_flr_final_complete, file="Data/df_flr_final_complete.rds") 
+write_csv(df_flr_final_complete, file="Data/df_flr_final_complete.csv")
 
-write_csv(df_flr_final_complete, file="Data/df_flr_final_complete_JD.csv")
+#saveRDS(df_flr_final_complete, file="Data/df_flr_final_complete_JD.rds") 
+#write_csv(df_flr_final_complete, file="Data/df_flr_final_complete_JD.csv")
 

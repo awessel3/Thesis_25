@@ -14,6 +14,7 @@ getwd()
 
 df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
 head(df_flr_final_complete)
+colnames(df_flr_final_complete)
 
 calculateClimate <- function(df) {
   df %>%
@@ -91,6 +92,7 @@ ggplot(df_flr_final_summary, aes(x = spring_temp, y = doy)) + geom_point()
 ggplot(df_flr_final_summary, aes(x = spring_precip, y = doy)) + geom_point()
 ggplot(df_flr_final_summary, aes(x = preceding_precip, y = doy)) + geom_point()
 ggplot(df_flr_final_summary, aes(x = preceding_temp, y = doy)) + geom_point()
+
 
 # saving full files 
 saveRDS(df_flr_final_summary, file="Data/df_flr_final_summary.rds") 
