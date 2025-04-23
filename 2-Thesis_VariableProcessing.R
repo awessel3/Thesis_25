@@ -125,15 +125,49 @@ write_csv(df_flr_final_filtered, file="Data/df_flr_final_filtered.csv")
 
 #Adding SPEI 
 
-df_temp <- df_flr_final_summary %>%
-  pivot_longer(
-    cols = starts_with("tmean_"),
-    names_to = "month",
-    names_prefix = "p_",
-    values_to = "temp_value"
-  )
+# creating function to reset month numbers 
 
-df_precip <- df_flr_final_summary %>%
+remap_months <- setNames(1:12, c(5:12, 1:4))
+
+df_flr_final_temp <- df_flr_final_summary %>%
+  rename_with(.fn = function(cols) {
+    is_tmean <- grepl("^tmean_\\d+$", cols)
+    new_cols <- cols
+    new_cols[is_tmean] <- paste0(
+      "tmean_",
+      remap_months[as.character(as.numeric(sub("tmean_", "", cols[is_tmean])))]
+    )
+    new_cols
+  })
+df_flr_final_temp
+
+df_flr_final_precip <- df_flr_final_summary %>%
+  rename_with(.fn = function(cols) {
+    is_ppt <- grepl("^ppt_\\d+$", cols)
+    new_cols <- cols
+    new_cols[is_ppt] <- paste0(
+      "ppt_",
+      remap_months[as.character(as.numeric(sub("ppt_", "", cols[is_ppt])))]
+    )
+    new_cols
+  })
+df_flr_final_precip
+
+
+# Adding temperature and precipitation together in long format
+
+df_temp <- df_flr_final_temp %>%
+  pivot_longer(
+    cols = starts_with("tmean_"), 
+    names_to = "temp_month", 
+    names_prefix = "tmean_", 
+    values_to = "temp_value"
+  ) %>%
+  mutate(month = as.numeric(gsub("tmean_", "", temp_month))) 
+
+
+
+df_precip <- df_flr_final_precip %>%
   pivot_longer(
     cols = starts_with("ppt_"),
     names_to = "month",
@@ -160,6 +194,61 @@ monthly0 <- df_long %>%
   ) %>%
   as.data.frame()
 
+  ) %>% 
+  mutate(month = as.numeric(gsub("ppt_", "", precip_month)))  
+dim(df_precip)
+
+
+df_combined <- df_temp %>%
+  left_join(df_precip %>% dplyr::select(id, month, precip_value), by = c("id", "month"))
+dim(df_combined)
+
+df_combined <- df_combined %>%  rename(observed_month = month) %>% 
+  rename(month = temp_month)
+colnames(df_combined)
+str(df_combined)
+
+df_combined$month <- as.numeric(df_combined$month)
+str(df_combined)
+
+# get monthly values for just first observation
+monthly <- df_combined %>%
+  filter(id == unique(id)[1]) %>%
+  mutate(
+    pet = thornthwaite(temp_value, latitude[1]),
+    bal = precip_value - pet,  
+    bal = as.vector(bal)       
+  )
+dim(df_combined)
+dim(monthly)
+colnames(monthly)
+str(monthly)
+
+write_csv(df_combined, file="Data/df_combined_SPEI.csv") 
+
+dat1 <- ts(monthly, start = c(2018, 12), frequency = 12)  
+dat1 <- as.data.frame(dat1)
+sum(is.na(monthly$bal))
+dat1
+str(dat1)
+
+# Calculate the 1-month SPEI
+spei1 <- spei(dat1[,'bal'], scale = 1)
+dat1$spei1 <- as.vector(spei1$fitted)
+spei1
+# Calculate the 3-month SPEI
+spei3 <- spei(dat1, 3)
+dat1_spei3 <- as.data.frame(spei3$fitted)
+
+# Calculate the 6-month SPEI
+spei6 <- spei(dat1, 6)
+dat1_spei6 <- as.data.frame(spei6$fitted)
+
+# Add the SPEI values to the monthly data
+monthly$spei1 <- dat1_spei1$fitted
+monthly$spei3 <- dat1_spei3$fitted
+monthly$spei6 <- dat1_spei6$fitted
+head(monthly)
 
 
 
