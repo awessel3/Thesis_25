@@ -162,45 +162,29 @@ df_temp <- df_flr_final_temp %>%
     names_to = "temp_month", 
     names_prefix = "tmean_", 
     values_to = "temp_value"
-  ) %>%
-  mutate(month = as.numeric(gsub("tmean_", "", temp_month))) 
+  )
 
 
-
-df_precip <- df_flr_final_precip %>%
+df_precip <- df_flr_final_summary %>%
   pivot_longer(
-    cols = starts_with("ppt_"),
-    names_to = "month",
-    names_prefix = "ppt_",
+    cols = starts_with("ppt_"), 
+    names_to = "precip_month", 
+    names_prefix = "ppt_", 
     values_to = "precip_value"
   )
 
-# Join on id and month
-df_combined <- df_temp %>%
-  left_join(df_precip, by = c("id", "month"))
+# Ensure that month columns have the same format for joining
+df_temp <- df_temp %>%
+  mutate(month = as.numeric(gsub("tmean_", "", temp_month))) 
 
-# Optional: convert month to integer
-df_combined <- df_combined %>%
-  mutate(month = as.integer(month))
-
-
-
-monthly0 <- df_long %>%
-  group_by(species, month) %>%
-  summarise(
-    tmean = mean(temperature, na.rm = TRUE),
-    precip = sum(precipitation),
-    lat = median(latitude)
-  ) %>%
-  as.data.frame()
-
-  ) %>% 
+df_precip <- df_precip %>%
   mutate(month = as.numeric(gsub("ppt_", "", precip_month)))  
-dim(df_precip)
 
+df_precip <- df_precip %>%
+  mutate(month = as.numeric(gsub("ppt_", "", precip_month)))  
 
 df_combined <- df_temp %>%
-  left_join(df_precip %>% dplyr::select(id, month, precip_value), by = c("id", "month"))
+  left_join(df_precip %>% select(id, month, precip_value), by = c("id", "month"))
 dim(df_combined)
 
 df_combined <- df_combined %>%  rename(observed_month = month) %>% 
@@ -216,25 +200,21 @@ monthly <- df_combined %>%
   filter(id == unique(id)[1]) %>%
   mutate(
     pet = thornthwaite(temp_value, latitude[1]),
-    bal = precip_value - pet,  
-    bal = as.vector(bal)       
+    bal = precip_value - pet,  # Calculate the water balance
+    bal = as.vector(bal)       # Convert water balance to a vector (if needed)
   )
 dim(df_combined)
 dim(monthly)
 colnames(monthly)
 str(monthly)
 
-write_csv(df_combined, file="Data/df_combined_SPEI.csv") 
 
-dat1 <- ts(monthly, start = c(2018, 12), frequency = 12)  
-dat1 <- as.data.frame(dat1)
-sum(is.na(monthly$bal))
-dat1
-str(dat1)
+dat1 <- ts(monthly$bal, start = c(2018, 1), frequency = 12)  
+head(dat1)
 
 # Calculate the 1-month SPEI
-spei1 <- spei(dat1[,'bal'], scale = 1)
-dat1$spei1 <- as.vector(spei1$fitted)
+spei1 <- spei(dat1, 1)
+dat1_spei1 <- as.data.frame(spei1$fitted)
 spei1
 # Calculate the 3-month SPEI
 spei3 <- spei(dat1, 3)
