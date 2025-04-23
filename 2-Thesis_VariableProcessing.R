@@ -43,7 +43,7 @@ calculateClimate <- function(df) {
           ifelse(observation_month -3 <= 0, 12 + (observation_month - 3), observation_month - 3)
         )
       ),
-
+      
       preceding_temp = mean(
         unlist(lapply(preceding_months, function(m) {
           col_name <- paste0("tmean_", m)
@@ -51,7 +51,7 @@ calculateClimate <- function(df) {
         })),
         na.rm = TRUE
       ),
-    
+      
       preceding_precip = mean(
         unlist(lapply(preceding_months, function(m) {
           col_name <- paste0("ppt_", m)
@@ -83,7 +83,7 @@ spring_temp <- rowMeans(df_flr_final_complete[,c("tmean_6","tmean_7", "tmean_8",
 df_flr_final_summary$spring_temp <- spring_temp
 
 spring_precip <- rowMeans(df_flr_final_complete[,c("ppt_6","ppt_7", "ppt_8",
-                                                 "ppt_9")])
+                                                   "ppt_9")])
 
 df_flr_final_summary$spring_precip <- spring_precip
 
@@ -162,29 +162,24 @@ df_temp <- df_flr_final_temp %>%
     names_to = "temp_month", 
     names_prefix = "tmean_", 
     values_to = "temp_value"
-  )
+  ) %>%
+  mutate(month = as.numeric(gsub("tmean_", "", temp_month))) 
 
 
-df_precip <- df_flr_final_summary %>%
+
+df_precip <- df_flr_final_precip %>%
   pivot_longer(
     cols = starts_with("ppt_"), 
     names_to = "precip_month", 
     names_prefix = "ppt_", 
     values_to = "precip_value"
-  )
-
-# Ensure that month columns have the same format for joining
-df_temp <- df_temp %>%
-  mutate(month = as.numeric(gsub("tmean_", "", temp_month))) 
-
-df_precip <- df_precip %>%
+  ) %>% 
   mutate(month = as.numeric(gsub("ppt_", "", precip_month)))  
+dim(df_precip)
 
-df_precip <- df_precip %>%
-  mutate(month = as.numeric(gsub("ppt_", "", precip_month)))  
 
 df_combined <- df_temp %>%
-  left_join(df_precip %>% select(id, month, precip_value), by = c("id", "month"))
+  left_join(df_precip %>% dplyr::select(id, month, precip_value), by = c("id", "month"))
 dim(df_combined)
 
 df_combined <- df_combined %>%  rename(observed_month = month) %>% 
@@ -200,8 +195,8 @@ monthly <- df_combined %>%
   filter(id == unique(id)[1]) %>%
   mutate(
     pet = thornthwaite(temp_value, latitude[1]),
-    bal = precip_value - pet,  # Calculate the water balance
-    bal = as.vector(bal)       # Convert water balance to a vector (if needed)
+    bal = precip_value - pet,  
+    bal = as.vector(bal)       
   )
 dim(df_combined)
 dim(monthly)
@@ -209,12 +204,15 @@ colnames(monthly)
 str(monthly)
 
 
-dat1 <- ts(monthly$bal, start = c(2018, 1), frequency = 12)  
-head(dat1)
+dat1 <- ts(monthly, start = c(2018, 12), frequency = 12)  
+dat1 <- as.data.frame(dat1)
+sum(is.na(monthly$bal))
+dat1
+str(dat1)
 
 # Calculate the 1-month SPEI
-spei1 <- spei(dat1, 1)
-dat1_spei1 <- as.data.frame(spei1$fitted)
+spei1 <- spei(dat1[,'bal'], scale = 1)
+dat1$spei1 <- as.vector(spei1$fitted)
 spei1
 # Calculate the 3-month SPEI
 spei3 <- spei(dat1, 3)
@@ -229,6 +227,7 @@ monthly$spei1 <- dat1_spei1$fitted
 monthly$spei3 <- dat1_spei3$fitted
 monthly$spei6 <- dat1_spei6$fitted
 head(monthly)
+
 
 
 
