@@ -198,6 +198,9 @@ monthly <- df_combined %>%
     bal = precip_value - pet,  
     bal = as.vector(bal)       
   )
+monthly <- monthly %>%
+  arrange(observed_month)
+monthly
 dim(df_combined)
 dim(monthly)
 colnames(monthly)
