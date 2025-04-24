@@ -48,14 +48,14 @@ data <- na.omit(data)
 unique(data$species)
 
 #scaling 
-data <- data %>% mutate(
+dat.scaled <- data %>% mutate(
   doy_sc = as.vector(scale(doy)),
   latitude_sc = as.vector(scale(latitude)),
   ptemp_sc = as.vector(scale(spring.temp)),
   pprecip_sc = as.vector(scale(spring.precip)),
   elevation_sc = as.vector(scale(elevation))
 )
-print(data,width=Inf,n=2)
+print(dat.scaled,width=Inf,n=2)
 
 # Notes ----
 # save traceplots
@@ -71,6 +71,9 @@ lowerFn <- function(data, mapping, method = "lm", ...) {
 # Models ----
 formula_full <- doy_sc ~ 1 + SPEI * latitude_sc * elevation_sc * life_history + 
   (1 + latitude_sc * elevation_sc * SPEI | species)
+
+formula_full <- doy_sc ~ 1 + spring.temp * spring.precip * latitude_sc * elevation_sc * life_history + 
+  (1 + latitude_sc * elevation_sc * spring.temp * spring.precip  | species)
 
 
 formula_full <- doy_sc ~ 1 + ptemp_sc * latitude_sc * elevation_sc * pprecip_sc *life_history + 
@@ -96,7 +99,7 @@ formula5 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc + ppre
 
 fit0 <- brm(
   formula = formula0,
-  data = data,
+  data = dat.scaled,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   # control = list(adapt_delta = 0.99, max_treedepth = 15),
   save_pars = save_pars(all = TRUE),
@@ -419,7 +422,7 @@ ggplot(slopes_binned, aes(x = species_slope, y = species_ordered, fill = prob_bi
 
 fit_full <- brm(
   formula = formula_full,
-  data = data,
+  data = dat.scaled,
   family = gaussian(),  # Assuming DOY is approximately normally distributed
   # control = list(adapt_delta = 0.99, max_treedepth = 15),
   save_pars = save_pars(all = TRUE),
