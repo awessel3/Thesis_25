@@ -17,11 +17,13 @@ setwd("~/Desktop/Thesis_25")
 
 df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 df_flr_final_filtered <- read_rds("Data/df_flr_final_filtered.rds")
-trait_species <- read.csv("trait_species.csv")
-traits_full <- read.csv('Traits.csv')
-traits_full$SpName <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", traits_full$SpName)
+dim(df_flr_final_filtered)
 
-traits_full <- rename(traits_full, species = SpName)
+#trait_species <- read.csv("trait_species.csv")
+#traits_full <- read.csv('Traits.csv')
+#traits_full$SpName <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", traits_full$SpName)
+
+#traits_full <- rename(traits_full, species = SpName)
 
 
 life_hist <- read.csv("Data/Flowering_WVPT_life_history.csv")
@@ -41,13 +43,13 @@ trait_hist_count
 
 ## Prepping data for model 
 
-unique(df_flr_final_summary$species)
+unique(df_flr_final_filtered$species)
 
 #Excluding species - either for low number of observations or skewing data 
 
 
-data <- df_flr_final_filtered %>% dplyr::select(latitude, longitude, species, preceding_temp,
-                                               preceding_precip, elevation, doy, life_history)
+data <- df_flr_final_filtered %>% dplyr::select(latitude, longitude, species, spring_temp,
+                                               spring_precip, elevation, doy, life_history)
 data <- na.omit(data)
 unique(data$species)
 
@@ -62,15 +64,15 @@ latitude_center <- mean(latitude_num)
 latitude_scale <- sd(latitude_num)
 data$latitude_sc <- (latitude_num - latitude_center) / latitude_scale
 
-ptemp_num <- as.numeric(data$preceding_temp)
-ptemp_center <- mean(ptemp_num)
-ptemp_scale <- sd(ptemp_num)
-data$ptemp_sc <- (ptemp_num - ptemp_center) / ptemp_scale
+stemp_num <- as.numeric(data$spring_temp)
+stemp_center <- mean(stemp_num)
+stemp_scale <- sd(stemp_num)
+data$stemp_sc <- (stemp_num - stemp_center) / stemp_scale
 
-pprecip_num <- as.numeric(data$preceding_precip)
-pprecip_center <- mean(pprecip_num)
-pprecip_scale <- sd(pprecip_num)
-data$pprecip_sc <- (pprecip_num - pprecip_center) / pprecip_scale     
+sprecip_num <- as.numeric(data$spring_precip)
+sprecip_center <- mean(pprecip_num)
+sprecip_scale <- sd(sprecip_num)
+data$sprecip_sc <- (sprecip_num - sprecip_center) / sprecip_scale     
 
 elevation_num <- as.numeric(data$elevation)
 elevation_center <- mean(elevation_num)
@@ -78,7 +80,7 @@ elevation_scale <- sd(elevation_num)
 data$elevation_sc <- (elevation_num - elevation_center) / elevation_scale
 
 # fit0
-formula <- doy_sc ~ 1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc +
+formula <- doy_sc ~ 1 + stemp_sc * latitude_sc + stemp_sc * elevation_sc +
   pprecip_sc + 
   (1 + ptemp_sc * latitude_sc + ptemp_sc * elevation_sc + pprecip_sc | species)
 
@@ -102,13 +104,9 @@ formula3 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + elevation_sc +
 formula4 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + life_history + (1 | species)
 
-#pass 5: 
-formula_full <- doy_sc ~ 1 + ptemp_sc * latitude_sc * elevation_sc * pprecip_sc * life_history +
-  (1 + latitude_sc * ptemp_sc * elevation_sc * pprecip_sc | species)
-
-#pass 6: 
-
-
+#pass 5: FULL MODEL
+formula_full <- doy_sc ~ 1 + stemp_sc * latitude_sc * elevation_sc * sprecip_sc * life_history +
+  (1 + latitude_sc * stemp_sc * elevation_sc * sprecip_sc | species)
 
 fit <- brm(
   formula = formula_full,
@@ -148,7 +146,7 @@ fit2 <- readRDS("Data/fit2.RDS")
 saveRDS(fit, file = "Data/fit3.RDS")
 fit3 <- readRDS("Data/fit3.RDS") 
 
-
+#Pass 5 save - full fit 
 saveRDS(fit, file = "Data/fit_full.RDS")
 fit_full <- readRDS("Data/fit_full.RDS") 
 
@@ -169,8 +167,8 @@ life_history
 # Create a new dataset to predict over
 data.predict <- crossing(
   elevation_sc = mean(original_data$elevation_sc), # predictions at mean elevation
-  ptemp_sc = mean(original_data$ptemp_sc), # temperature range
-  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  stemp_sc = mean(original_data$stemp_sc), # temperature range
+  sprecip_sc = mean(original_data$sprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 5),
   species = spp, 
   life_history = life_history)
@@ -199,8 +197,8 @@ ggplot(fitted.pred, aes(x = latitude , y = DOY_pred, color=species))+
 #Temp vs DOY
 data.predict <- crossing(
   elevation_sc = mean(original_data$elevation_sc), # predictions at mean elevation
-  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
-  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  stemp_sc = seq(min(original_data$stemp_sc), max(original_data$stemp_sc), length.out = 100), # temperature range
+  sprecip_sc = mean(original_data$sprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
   species = spp,
   life_history = life_history
@@ -213,13 +211,13 @@ fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, all
 
 fitted.pred <- fitted.pred %>%
   mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center)
+         spring_temp = (stemp_sc * stemp_scale) + stemp_center)
 
 
 
 # Plot
 # fit#_TempDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp , y = DOY_pred, color = species))+
+ggplot(fitted.pred, aes(x = spring_temp , y = DOY_pred, color = species))+
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
   labs(y="Day of Year flowering", x="preceding temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -230,8 +228,8 @@ ggplot(fitted.pred, aes(x = preceding_temp , y = DOY_pred, color = species))+
 # Define predictions dataset
 data.predict <- crossing(
   elevation_sc = mean(original_data$elevation_sc, na.rm = TRUE), # predictions at mean elevation
-  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
-  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  stemp_sc = seq(min(original_data$stemp_sc), max(original_data$stemp_sc), length.out = 100), # temperature range
+  sprecip_sc = mean(original_data$sprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 5),
   species = spp,
   life_history = life_history
@@ -243,19 +241,19 @@ fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000
 
 fitted.pred <- fitted.pred %>%
   mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
+         spring_temp = (stemp_sc * stemp_scale) + stemp_center,
          latitude = (latitude_sc * latitude_scale) + latitude_center)
 
 # Plot
 # fit#_TempLatDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
 # SS_fit#_TempLatDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -266,8 +264,8 @@ ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(l
 # Define predictions dataset
 data.predict <- crossing(
   elevation_sc = seq(min(original_data$elevation_sc), max(original_data$elevation_sc), length.out = 5), # predictions at mean elevation
-  ptemp_sc = seq(min(original_data$ptemp_sc), max(original_data$ptemp_sc), length.out = 100), # temperature range
-  pprecip_sc = mean(original_data$pprecip_sc, na.rm = TRUE), # mean precipitation
+  stemp_sc = seq(min(original_data$stemp_sc), max(original_data$stemp_sc), length.out = 100), # temperature range
+  sprecip_sc = mean(original_data$sprecip_sc, na.rm = TRUE), # mean precipitation
   latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
   species = spp,
   life_history = life_history
@@ -279,19 +277,19 @@ fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 1000
 
 fitted.pred <- fitted.pred %>%
   mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
-         preceding_temp = (ptemp_sc * ptemp_scale) + ptemp_center,
+         spring_temp = (stemp_sc * stemp_scale) + stemp_center,
          elevation = (elevation_sc * elevation_scale) + elevation_center)
 
 # Plot
 #fit#_TempElevDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(elevation, 0)))) +
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elevation, 0)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
 # SS_fit#_TempElevDOY_plot
-ggplot(fitted.pred, aes(x = preceding_temp, y = DOY_pred, color = factor(round(elevation, 2)))) +
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elevation, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -426,6 +424,7 @@ fixef_ridges <- fixef_long %>%
   mutate(term_ordered = fct_reorder(term_clean, prob_diff0))
 
 # Step 3: Plot
+#full#_general_ridgeplot
 ggplot(fixef_ridges, aes(x = estimate, y = term_ordered, fill = term_ordered)) +
   geom_density_ridges(scale = 1.2, rel_min_height = 0.01, color = "white", alpha = 0.85) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray30") +
