@@ -69,8 +69,9 @@ stemp_center <- mean(stemp_num)
 stemp_scale <- sd(stemp_num)
 data$stemp_sc <- (stemp_num - stemp_center) / stemp_scale
 
+
 sprecip_num <- as.numeric(data$spring_precip)
-sprecip_center <- mean(pprecip_num)
+sprecip_center <- mean(sprecip_num)
 sprecip_scale <- sd(sprecip_num)
 data$sprecip_sc <- (sprecip_num - sprecip_center) / sprecip_scale     
 
@@ -219,7 +220,6 @@ fitted.pred <- fitted.pred %>%
 # fit#_TempDOY_plot
 ggplot(fitted.pred, aes(x = spring_temp , y = DOY_pred, color = species))+
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
-  labs(y="Day of Year flowering", x="preceding temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
@@ -248,7 +248,6 @@ fitted.pred <- fitted.pred %>%
 # fit#_TempLatDOY_plot
 ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
-  labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
 
@@ -291,11 +290,42 @@ ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elev
 # SS_fit#_TempElevDOY_plot
 ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elevation, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
-  labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   facet_wrap(~species) +
   theme_minimal()
 
+#Temp|Precip vs DOY
+data.predict <- crossing(
+  elevation_sc = mean(original_data$elevation_sc, na.rm = TRUE), 
+  stemp_sc = seq(min(original_data$stemp_sc), max(original_data$stemp_sc), length.out = 100), 
+  sprecip_sc =  seq(min(original_data$sprecip_sc), max(original_data$sprecip_sc), length.out = 5), 
+  latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
+  species = spp,
+  life_history = life_history
+)
+
+# Make predictions using the fitted model
+fitted.pred <- linpred_draws(object = fit, newdata = data.predict, ndraws = 500, allow_new_levels = TRUE) %>%
+  mutate(DOY_pred_sc = .linpred)
+
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
+         spring_temp = (stemp_sc * stemp_scale) + stemp_center,
+         spring_precip = (sprecip_sc * sprecip_scale) + sprecip_center)
+
+# Plot
+#fit#_TempPrecipDOY_plot
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spring_precip, 0)))) +
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
+  scale_fill_brewer(palette = "Greys", guide = "none") +
+  theme_minimal()
+
+# SS_fit#_TempPrecipDOY_plot
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spring_precip, 2)))) +
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
+  scale_fill_brewer(palette = "Greys", guide = "none") +
+  facet_wrap(~species) +
+  theme_minimal()
 
 
 ## Creating phenological sensitivity plot ----
@@ -317,7 +347,7 @@ ggplot(sp_slopes_posterior_temp, aes(x = species, y = r_species)) +
   theme_minimal()
 
 species_temp_ps <- fit %>%
-  spread_draws(r_species[species, ptemp_sc]) %>%
+  spread_draws(r_species[species, stemp_sc]) %>%
   group_by(species) %>%
   summarise(
     mean_sensitivity = mean(r_species),  
@@ -327,9 +357,9 @@ species_temp_ps <- fit %>%
 
 # unscaling estimated parameters 
 species_temp_ps <- species_temp_ps %>%
-  mutate(sensitivity_unscaled = mean_sensitivity * (doy_scale / ptemp_scale),
-         lower_95_unscaled = lower_95 * (doy_scale / ptemp_scale),
-         upper_95_unscaled = upper_95 * (doy_scale / ptemp_scale))
+  mutate(sensitivity_unscaled = mean_sensitivity * (doy_scale / stemp_scale),
+         lower_95_unscaled = lower_95 * (doy_scale / stemp_scale),
+         upper_95_unscaled = upper_95 * (doy_scale / stemp_scale))
 
 
 #fixing species names containing . between 
@@ -347,19 +377,8 @@ temp_ps_plot_dat
 
 
 # fit#_temp_PS_plot
-ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = life_history)) +
-  geom_point(size = 3, aes(color = life_history)) + 
-  stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
-  geom_hline(yintercept = 0) +
-  geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
-
-
-# removing Bidens frondosa  - why so high? 
-temp_ps_woBF <- temp_ps_plot_dat %>% 
-  filter(species != "Bidens frondosa")
-
-ggplot(temp_ps_woBF, aes(x = mean_doy, y = sensitivity_unscaled, color = life_history)) +
-  geom_point(size = 3, aes(color = life_history)) + 
+ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
+  geom_point(size = 3, aes(color = species)) + 
   stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
   geom_hline(yintercept = 0) +
   geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
@@ -424,7 +443,7 @@ fixef_ridges <- fixef_long %>%
   mutate(term_ordered = fct_reorder(term_clean, prob_diff0))
 
 # Step 3: Plot
-#full#_general_ridgeplot
+#fit#_general_ridgeplot
 ggplot(fixef_ridges, aes(x = estimate, y = term_ordered, fill = term_ordered)) +
   geom_density_ridges(scale = 1.2, rel_min_height = 0.01, color = "white", alpha = 0.85) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray30") +
