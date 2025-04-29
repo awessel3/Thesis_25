@@ -12,6 +12,8 @@ library(loo)
 # Analysis R Script 
 library(brms)
 library(ggridges)
+library(rlang)
+library(stringr)
 
 setwd("~/Desktop/Thesis_25")
 
@@ -19,6 +21,7 @@ df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 df_flr_final_filtered <- read_rds("Data/df_flr_final_filtered.rds")
 dim(df_flr_final_filtered)
 
+## old trait data prep ---- 
 #trait_species <- read.csv("trait_species.csv")
 #traits_full <- read.csv('Traits.csv')
 #traits_full$SpName <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", traits_full$SpName)
@@ -26,22 +29,22 @@ dim(df_flr_final_filtered)
 #traits_full <- rename(traits_full, species = SpName)
 
 
-life_hist <- read.csv("Data/Flowering_WVPT_life_history.csv")
-spp <- unique(df_flr_final_filtered$species)
+#life_hist <- read.csv("Data/Flowering_WVPT_life_history.csv")
+#spp <- unique(df_flr_final_filtered$species)
 
-df_traits_flr <- traits_full %>%
-  filter(species %in% spp) 
-df_traits_flr_final <- left_join(df_traits_flr, life_hist, by = "species")
+#df_traits_flr <- traits_full %>%
+# filter(species %in% spp) 
+#df_traits_flr_final <- left_join(df_traits_flr, life_hist, by = "species")
 
-length(unique(df_traits_flr_final$species))
+#length(unique(df_traits_flr_final$species))
 
-trait_hist_count <- df_traits_flr_final %>% 
-  group_by(life_history) %>% 
-  summarise(count = n())
-trait_hist_count <- count(df_traits_flr_final, c("annual"))
-trait_hist_count
+#trait_hist_count <- df_traits_flr_final %>% 
+#  group_by(life_history) %>% 
+#  summarise(count = n())
+# trait_hist_count <- count(df_traits_flr_final, c("annual"))
+# trait_hist_count
 
-## Prepping data for model 
+## Prepping data for model ---- 
 
 unique(df_flr_final_filtered$species)
 
@@ -106,7 +109,7 @@ formula4 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + life_history + (1 | species)
 
 #pass 5: FULL MODEL
-formula_full <- doy_sc ~ 1 + stemp_sc * latitude_sc * elevation_sc * sprecip_sc * life_history +
+formula_full <- doy_sc ~ 1 + latitude_sc * stemp_sc * elevation_sc * sprecip_sc * life_history +
   (1 + latitude_sc * stemp_sc * elevation_sc * sprecip_sc | species)
 
 fit <- brm(
@@ -165,7 +168,7 @@ life_history
 
 
 ## Initial Plot Creation ----
-# Create a new dataset to predict over
+# Create a new data set to predict over
 data.predict <- crossing(
   elevation_sc = mean(original_data$elevation_sc), # predictions at mean elevation
   stemp_sc = mean(original_data$stemp_sc), # temperature range
@@ -254,7 +257,6 @@ ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(lati
 # SS_fit#_TempLatDOY_plot
 ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
-  labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   facet_wrap(~species) +
   theme_minimal()
@@ -407,6 +409,23 @@ ggplot(ps_life_hist, aes(x = life_history, y = mean_sensitivity, color = life_hi
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +  
   theme(legend.position = "none")
 
+# create simple random effect visualizations 
+
+re_fit <- as.data.frame(re$species)
+re_fit$species <- rownames(re$species)
+colnames(re_fit)
+
+# Plot
+ggplot(re_fit, aes(x = Estimate.stemp_sc, y = species)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(xmin = Q2.5.stemp_sc, xmax = Q97.5.stemp_sc), width = 0.2) +
+  geom_vline(xintercept = 0, colour = 'red', linetype = "dashed") +
+  labs(
+    x = "Random Effect Estimate",
+    y = "Species",
+    title = "Random Effects for stemp_sc"
+  ) +
+  theme_minimal()
 
 
 ## from Jeffs scripts - ridge plots of posterior distributions ----
@@ -467,3 +486,88 @@ ggplot(fixef_ridges, aes(x = estimate, y = term_ordered, fill = term_ordered)) +
     axis.text.y = element_text(size = 12)
   ) +
   coord_cartesian(xlim = c(min(fixef_ridges$estimate), max(fixef_ridges$estimate) + 0.5))
+
+
+
+# Extract random slopes for each species
+fit
+
+# Get the random slope term names
+slope_terms <- get_variables(fit) %>%
+  str_subset("^r_species\\[.*?,(.*?)\\]$") %>%
+  str_match("^r_species\\[.*?,(.*?)\\]$") %>%
+  .[, 2] %>%
+  unique()
+
+# Build expressions like r_species[species, <term>]
+random_exprs <- paste0("r_species[species,", slope_terms, "]") %>%
+  parse_exprs()
+
+# Build fixed effect names
+fixed_exprs <- paste0("b_", slope_terms) %>% syms()
+
+
+# Fixed effect draws
+fixed_draws <- fit %>%
+  spread_draws(!!!fixed_exprs)
+
+# Random effect draws for species
+random_draws <- fit %>%
+  spread_draws(!!!random_exprs)
+
+# combine and calculate species-specific slopes
+
+# extract raw term names for all species
+all_r_vars <- get_variables(fit) %>%
+  str_subset("^r_species\\[.*?,.*\\]$")
+head(all_r_vars)
+
+random_draws <- fit %>%
+  spread_draws(!!!syms(all_r_vars))
+
+random_long <- random_draws %>%
+  pivot_longer(
+    cols = any_of(all_r_vars),  # now ensures valid columns
+    names_to = "term_raw",
+    values_to = "rand"
+  ) %>%
+  mutate(
+    term = str_match(term_raw, "\\[.*?,(.*?)\\]")[, 2],
+    species = str_match(term_raw, "\\[(.*?),")[, 2],
+    fixed_name = paste0("b_", term),
+    rand = as.numeric(rand)  # <---- KEY FIX
+  )
+
+fixed_long <- fixed_draws %>%
+  pivot_longer(
+    cols = all_of(paste0("b_", slope_terms)),
+    names_to = "fixed_name",
+    values_to = "fix"
+  ) %>%
+  mutate(fix = as.numeric(fix))  # ensure numeric!
+
+species_slopes <- random_long %>%
+  left_join(fixed_long, by = c(".chain", ".iteration", ".draw", "fixed_name")) %>%
+  mutate(
+    species_slope = fix + rand,
+    term_clean = term %>%
+      str_replace_all(":", " × ") %>%
+      str_replace_all("_sc", "")
+  ) %>%
+  filter(term != "Intercept")   # skip intercepts
+
+head(species_slopes)
+
+species_slopes %>%
+  ggplot(aes(x = species_slope, fill = species)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ term_clean, scales = "free") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none") +
+  labs(
+    title = "Posterior Distributions of Species-Specific Slopes",
+    x = "Slope Estimate",
+    y = "Density"
+  )
+
