@@ -12,6 +12,7 @@ library(loo)
 # Analysis R Script 
 library(brms)
 library(ggridges)
+library(ggdist)
 library(rlang)
 library(stringr)
 
@@ -161,6 +162,7 @@ loo1
 #prep for plotting 
 fit <- fit_full
 original_data <- fit$data 
+colnames(original_data)
 spp <- unique(original_data$species)
 spp
 life_history <- unique(original_data$life_history)
@@ -190,12 +192,13 @@ fitted.pred <- fitted.pred %>%
 
 # Plot
 #fit#_LatDOY_plot
-ggplot(fitted.pred, aes(x = latitude , y = DOY_pred, color=species))+
-  stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
-  labs(y="Day of Year flowering", x="Latitude") +
+lat <- ggplot(fitted.pred, aes(x = latitude , y = DOY_pred)) +
+  stat_lineribbon(.width = c(.5,.9),show.legend=TRUE,  color = 'dodgerblue1', alpha = 0.5) +
+  labs(y = NULL, x="Latitude") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
-  theme_minimal()
+  theme_minimal() 
 #ggsave("Figures/DOY_latitude.pdf", width=5, height=4)
+lat
 
 
 #Temp vs DOY
@@ -221,10 +224,42 @@ fitted.pred <- fitted.pred %>%
 
 # Plot
 # fit#_TempDOY_plot
-ggplot(fitted.pred, aes(x = spring_temp , y = DOY_pred, color = species))+
-  stat_lineribbon(.width = c(.5,.9),show.legend=TRUE) +
+temp <- ggplot(fitted.pred, aes(x = spring_temp , y = DOY_pred)) +
+  stat_lineribbon(.width = c(.5,.9),show.legend=TRUE, color = 'dodgerblue1', alpha = 0.5) +
+  scale_fill_brewer(palette = "Greys", guide = "none") +
+  labs(x = "Spring Temperature", y= "Day of Flowering (DOY)") +
+  theme_minimal()
+temp
+
+#Precip vs DOY
+data.predict <- crossing(
+  elevation_sc = mean(original_data$elevation_sc), 
+  stemp_sc = mean(original_data$stemp_sc),
+  sprecip_sc = seq(min(original_data$stemp_sc), max(original_data$stemp_sc), length.out = 100), 
+  latitude_sc = mean(original_data$latitude_sc, na.rm = TRUE),
+  species = spp,
+  life_history = life_history
+)
+
+
+# make predictions using the fitted model
+fitted.pred <-  linpred_draws(object=fit, newdata=data.predict, ndraws=1000, allow_new_levels=TRUE) %>%
+  mutate(DOY_pred_sc = .linpred )
+
+fitted.pred <- fitted.pred %>%
+  mutate(DOY_pred = (DOY_pred_sc * doy_scale) + doy_center,
+         spring_precip = (sprecip_sc * sprecip_scale) + sprecip_center)
+
+
+
+# Plot
+# fit#_precipDOY_plot
+precip <- ggplot(fitted.pred, aes(x = spring_precip , y = DOY_pred))+
+  stat_lineribbon(.width = c(.5,.9),show.legend=TRUE, color = 'dodgerblue1', alpha = 0.5) +
+  labs(x = "Spring Precipitation", y  = NULL) +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   theme_minimal()
+precip
 
 
 #Temp|latitude vs DOY
@@ -249,10 +284,14 @@ fitted.pred <- fitted.pred %>%
 
 # Plot
 # fit#_TempLatDOY_plot
-ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
-  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
+temp_lat <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE,  alpha = 0.5) + 
+  scale_color_brewer(palette = "Set1", name = "Latitude") +  
   scale_fill_brewer(palette = "Greys", guide = "none") +
-  theme_minimal()
+  labs(x = "Spring Temperature", y = NULL) +
+  theme_minimal()  
+temp_lat
+
 
 # SS_fit#_TempLatDOY_plot
 ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
@@ -283,14 +322,16 @@ fitted.pred <- fitted.pred %>%
 
 # Plot
 #fit#_TempElevDOY_plot
-ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elevation, 0)))) +
-  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
-  labs(y = "Day of Year Flowering", x = "Preceding Temperature") +
+temp_elev <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elevation, 1)))) + 
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE, alpha = 0.5) +  
+  scale_color_brewer(palette = "Set1", name = "Elevation") +  
   scale_fill_brewer(palette = "Greys", guide = "none") +
-  theme_minimal()
+  labs(x = "Spring Temperature", y = "Day of Flowering (DOY)") +
+  theme_minimal()  
+temp_elev
 
 # SS_fit#_TempElevDOY_plot
-ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elevation, 2)))) +
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(elevation, 1)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   facet_wrap(~species) +
@@ -317,17 +358,116 @@ fitted.pred <- fitted.pred %>%
 
 # Plot
 #fit#_TempPrecipDOY_plot
-ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spring_precip, 0)))) +
-  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
+temp_precip <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spring_precip, 1)))) + 
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE, alpha = 0.5) +  
+  scale_color_brewer(palette = "Set1", name = "Spring Precipitation") +  
   scale_fill_brewer(palette = "Greys", guide = "none") +
-  theme_minimal()
+  labs(x = "Spring Temperature", y = NULL) +
+  theme_minimal() 
 
 # SS_fit#_TempPrecipDOY_plot
-ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spring_precip, 2)))) +
+ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spring_precip, 1)))) +
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   facet_wrap(~species) +
   theme_minimal()
+
+#Saving large figure 1 
+top_plots <- temp + lat + precip
+top_plots
+bottom_plots <- temp_elev + temp_lat + temp_precip
+bottom_plots
+
+all_fig1 <- top_plots / bottom_plots
+all_fig1
+
+#ggsave("Analysis_Images/figure_1_draft.pdf", all_fig1,width=7, height=5)
+
+## Density plots - species specific ----
+
+get_variables(fit)
+
+#Intercept
+fit %>%
+  spread_draws(b_Intercept, r_species[species, Intercept]) %>%
+  mutate(species_mean = b_Intercept + r_species) %>%
+  ggplot(aes(y = species, x = species_mean)) +
+  stat_halfeye(.width = c(0.66, 0.95)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    x = "Mean Intecept Estimate",
+    y = "Species"
+  ) +
+  theme_minimal()
+
+#temp
+fit %>%
+  spread_draws(b_stemp_sc, r_species[species, stemp_sc]) %>%
+  mutate(species_mean = b_stemp_sc + r_species) %>%
+  ggplot(aes(y = species, x = species_mean)) +
+  stat_halfeye(.width = c(0.66, 0.95)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    x = "Mean Spring Temp Estimate",
+    y = "Species"
+  ) +
+  theme_minimal()
+
+#latitude
+fit %>%
+  spread_draws(b_latitude_sc, r_species[species, latitude_sc]) %>%
+  mutate(species_mean = b_latitude_sc + r_species) %>%
+  ggplot(aes(y = species, x = species_mean)) +
+  stat_halfeye(.width = c(0.66, 0.95)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    x = "Mean Latitude Estimate",
+    y = "Species"
+  ) +
+  theme_minimal()
+
+#precip
+fit %>%
+  spread_draws(b_sprecip_sc, r_species[species, sprecip_sc]) %>%
+  mutate(species_mean = b_sprecip_sc + r_species) %>%
+  ggplot(aes(y = species, x = species_mean)) +
+  stat_halfeye(.width = c(0.66, 0.95)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    x = "Mean precip Estimate",
+    y = "Species"
+  ) +
+  theme_minimal()
+
+#elevation
+fit %>%
+  spread_draws(b_elevation_sc, r_species[species, elevation_sc]) %>%
+  mutate(species_mean = b_elevation_sc + r_species) %>%
+  ggplot(aes(y = species, x = species_mean)) +
+  stat_halfeye(.width = c(0.66, 0.95)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    x = "Mean elevation Estimate",
+    y = "Species"
+  ) +
+  theme_minimal()
+
+# how would I get this to work?
+fit %>%
+  spread_draws(b_stemp_sc:latitude_sc, r_species[species, "b_stemp_sc:latitude_sc"]) %>%
+  mutate(species_mean = b_stemp_sc:latitude_sc + r_species) %>%  
+  ggplot(aes(y = species, x = species_mean)) +
+  stat_halfeye(.width = c(0.66, 0.95)) +  
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") + 
+  labs(
+    x = "Mean temp x lat Estimate",  
+    y = "Species" 
+  ) +
+  theme_minimal()  
+
+
+
+
 
 
 ## Creating phenological sensitivity plot ----
@@ -338,14 +478,14 @@ get_variables(fit)
 
 # extracr species specific slopes for temperature
 sp_slopes_posterior_temp <- fit %>%
-  spread_draws(r_species[species, ptemp_sc ])  
+  spread_draws(r_species[species, stemp_sc ])  
 head(sp_slopes_posterior_temp)
 
-unique(sp_slopes_posterior_temp$ptemp_sc)
+unique(sp_slopes_posterior_temp$stemp_sc)
 
-ggplot(sp_slopes_posterior_temp, aes(x = species, y = r_species)) + 
+ggplot(sp_slopes_posterior_temp, aes(x = r_species, y = species)) + 
   stat_summary(geom = "pointrange", fun.data = mean_hdi) +
-  labs(title = "Species-Specific Slopes", x = "Species", y = "Slope") +
+  labs(title = "Species-Specific Slopes", y = "Species", x = "Slope") +
   theme_minimal()
 
 species_temp_ps <- fit %>%
@@ -382,8 +522,8 @@ temp_ps_plot_dat
 ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
   geom_point(size = 3, aes(color = species)) + 
   stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
-  geom_hline(yintercept = 0) +
-  geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
+  geom_hline(yintercept = 0) 
+  #geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
 
 # life history comparison plot 
 
@@ -409,23 +549,79 @@ ggplot(ps_life_hist, aes(x = life_history, y = mean_sensitivity, color = life_hi
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +  
   theme(legend.position = "none")
 
-# create simple random effect visualizations 
+## making similar plots for other variables 
 
-re_fit <- as.data.frame(re$species)
-re_fit$species <- rownames(re$species)
-colnames(re_fit)
+get_variables(fit)
 
-# Plot
-ggplot(re_fit, aes(x = Estimate.stemp_sc, y = species)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(xmin = Q2.5.stemp_sc, xmax = Q97.5.stemp_sc), width = 0.2) +
-  geom_vline(xintercept = 0, colour = 'red', linetype = "dashed") +
-  labs(
-    x = "Random Effect Estimate",
-    y = "Species",
-    title = "Random Effects for stemp_sc"
-  ) +
+# extracr species specific slopes for temperature
+sp_slopes_posterior_lat <- fit %>%
+  spread_draws(r_species[species, b_latitude_sc])  
+head(sp_slopes_posterior_lat)
+
+unique(sp_slopes_posterior_lat$b_latitude_sc)
+
+ggplot(sp_slopes_posterior_lat, aes(x = r_species, y = species)) + 
+  stat_summary(geom = "pointrange", fun.data = mean_hdi) +
+  labs(title = "Species-Specific Slopes", y = "Species", x = "Slope") +
   theme_minimal()
+
+species_lat_ps <- fit %>%
+  spread_draws(r_species[species, latitude_sc]) %>%
+  group_by(species) %>%
+  summarise(
+    mean_sensitivity = mean(r_species),  
+    lower_95 = quantile(r_species, 0.025),
+    upper_95 = quantile(r_species, 0.975)
+  ) 
+
+# unscaling estimated parameters 
+species_lat_ps <- species_lat_ps %>%
+  mutate(sensitivity_unscaled = mean_sensitivity * (doy_scale / stemp_scale),
+         lower_95_unscaled = lower_95 * (doy_scale / stemp_scale),
+         upper_95_unscaled = upper_95 * (doy_scale / stemp_scale))
+
+
+#fixing species names containing . between 
+species_lat_ps$species <- gsub("\\.", " ", species_lat_ps$species)
+
+# Extract mean flowering
+mean_doy <- original_data %>%
+  group_by(species) %>%
+  summarise(mean_doy = mean(((doy_sc * doy_scale) + doy_center), na.rm = TRUE))
+
+# Merge data sets
+lat_ps_plot_dat <- left_join(species_lat_ps, mean_doy, by = 'species')
+lat_ps_plot_dat <- left_join(lat_ps_plot_dat, life_hist, by = "species")
+lat_ps_plot_dat
+
+
+# fit#_temp_PS_plot
+ggplot(lat_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
+  geom_point(size = 3, aes(color = species)) + 
+  stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
+  geom_hline(yintercept = 0) 
+#geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
+
+
+## variation between/within species 
+
+vc <- VarCorr(fit)
+vc.df <- data.frame(vc$species)
+vc.df$cov
+
+cov_matrix <- vc$species[[1]]$cov
+
+# Extract the variance components (diagonal of the covariance matrix)
+inter_var <- cov_matrix[1, 1]  # Extract variance for the random intercept
+
+intra_var <- sigma(fit)^2
+
+# Display the extracted variance components
+inter_var
+intra_var
+
+
+
 
 
 ## from Jeffs scripts - ridge plots of posterior distributions ----
@@ -492,6 +688,11 @@ ggplot(fixef_ridges, aes(x = estimate, y = term_ordered, fill = term_ordered)) +
 # Extract random slopes for each species
 fit
 
+posterior::as_draws_df(fit) %>%
+  colnames() %>%
+  str_subset("^b_")
+
+
 # Get the random slope term names
 slope_terms <- get_variables(fit) %>%
   str_subset("^r_species\\[.*?,(.*?)\\]$") %>%
@@ -504,14 +705,19 @@ random_exprs <- paste0("r_species[species,", slope_terms, "]") %>%
   parse_exprs()
 
 # Build fixed effect names
-fixed_exprs <- paste0("b_", slope_terms) %>% syms()
 
+fixed_names <- posterior::as_draws_df(fit) %>%
+  colnames() %>%
+  stringr::str_subset("^b_")
 
-# Fixed effect draws
+# Convert to parsed expressions (for use in spread_draws)
+fixed_exprs <- parse_exprs(fixed_names)
+fixed_exprs
+# Extract posterior draws for those fixed effects ## really unsure why this is not working 
 fixed_draws <- fit %>%
   spread_draws(!!!fixed_exprs)
 
-# Random effect draws for species
+# Random effect draws for species 
 random_draws <- fit %>%
   spread_draws(!!!random_exprs)
 
