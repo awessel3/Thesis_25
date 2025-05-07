@@ -7,6 +7,8 @@ library(raster)
 library(tidybayes)
 library(modelr)
 library(loo)
+library(RColorBrewer)
+
 
 
 # Analysis R Script 
@@ -282,23 +284,30 @@ fitted.pred <- fitted.pred %>%
          spring_temp = (stemp_sc * stemp_scale) + stemp_center,
          latitude = (latitude_sc * latitude_scale) + latitude_center)
 
+#color palette 
+palette_blues <- colorRampPalette(colors = c("white", "#004b88"))(12)
+scales::show_col(palette_blues[4:12])
+
 # Plot
 # fit#_TempLatDOY_plot
 temp_lat <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE,  alpha = 0.5) + 
-  scale_color_brewer(palette = "Set1", name = "Latitude") +  
+  scale_color_brewer(palette = "Dark2", name = "Latitude") +  
   scale_fill_brewer(palette = "Greys", guide = "none") +
-  labs(x = "Spring Temperature", y = NULL) +
+  labs(x = "Spring Temperature", y = "Day of Flowering (DOY)") +
   theme_minimal()  
 temp_lat
 
 
 # SS_fit#_TempLatDOY_plot
-ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 2)))) +
-  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE) +
+SS_temp_lat <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
+  stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE,  alpha = 0.5) + 
+  scale_color_brewer(palette = "Dark2", name = "Latitude") +  
   scale_fill_brewer(palette = "Greys", guide = "none") +
-  facet_wrap(~species) +
-  theme_minimal()
+  labs(x = "Spring Temperature", y = NULL) +
+  facet_wrap(~species) + 
+  theme_minimal()  
+SS_temp_lat
 
 #Temp|Elevation vs DOY
 # Define predictions dataset
@@ -382,6 +391,7 @@ all_fig1 <- top_plots / bottom_plots
 all_fig1
 
 #ggsave("Analysis_Images/figure_1_draft.pdf", all_fig1,width=7, height=5)
+
 
 ## Density plots - species specific ----
 
@@ -706,13 +716,7 @@ random_exprs <- paste0("r_species[species,", slope_terms, "]") %>%
 
 # Build fixed effect names
 
-fixed_names <- posterior::as_draws_df(fit) %>%
-  colnames() %>%
-  stringr::str_subset("^b_")
-
-# Convert to parsed expressions (for use in spread_draws)
-fixed_exprs <- parse_exprs(fixed_names)
-fixed_exprs
+fixed_exprs <- paste0("b_", slope_terms) %>% syms()
 # Extract posterior draws for those fixed effects ## really unsure why this is not working 
 fixed_draws <- fit %>%
   spread_draws(!!!fixed_exprs)
