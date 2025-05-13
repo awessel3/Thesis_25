@@ -111,12 +111,17 @@ formula3 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + elevation_sc +
 formula4 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
   pprecip_sc + life_history + (1 | species)
 
-#pass 5: FULL MODEL
+#FULL MODEL
 formula_full <- doy_sc ~ 1 + latitude_sc * stemp_sc * elevation_sc * sprecip_sc * life_history +
   (1 + latitude_sc * stemp_sc * elevation_sc * sprecip_sc | species)
 
+#
+formula_select1 <- doy_sc ~ 1 + 
+  latitude_sc * stemp_sc * sprecip_sc * life_history + elevation + 
+  (1 + latitude_sc * stemp_sc * sprecip_sc + elevation_sc | species)
+
 fit <- brm(
-  formula = formula_full,
+  formula = formula_select1,
   data = data,
   family = gaussian(),  
   #control = list(adapt_delta = 0.99, max_treedepth = 15),
@@ -462,20 +467,42 @@ fit %>%
   ) +
   theme_minimal()
 
-# how would I get this to work?
-fit %>%
-  spread_draws(b_stemp_sc:latitude_sc, r_species[species, "b_stemp_sc:latitude_sc"]) %>%
-  mutate(species_mean = b_stemp_sc:latitude_sc + r_species) %>%  
-  ggplot(aes(y = species, x = species_mean)) +
-  stat_halfeye(.width = c(0.66, 0.95)) +  
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") + 
-  labs(
-    x = "Mean temp x lat Estimate",  
-    y = "Species" 
-  ) +
-  theme_minimal()  
+# comparison of species specific slopes to mean doy 
+species_draws2 <- read_rds("Data/species_draws2.rds")
+species_summary <- read.csv("species_summary.csv")
+dim(species_summary)
+species_summary$species <- gsub("\\.", " ", species_summary$species)
+species_summary
+colnames(species_summary)
 
 
+avg_doy <- data %>% 
+  group_by(species) %>% 
+  summarise(doy = mean(doy))
+avg_doy
+
+temp_eff <- species_summary %>% 
+  filter(term_lab == "Temperature")
+dim(temp_eff)
+temp_eff.plot <- left_join(temp_eff, avg_doy, by = "species") 
+dim(temp_eff.plot)
+temp_eff.plot
+
+overall_model <- lm(mean_est ~ doy, data = temp_eff.plot)
+
+# Get the R-squared value
+overall_r_squared <- summary(overall_model)$r.squared
+
+temp_eff.plot
+
+ggplot(temp_eff.plot, aes( x = doy, y = mean_est, color = species)) + geom_point() + 
+  stat_smooth(method = "lm", formula = y ~ x, color = "black", size = 0.75) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") + 
+  geom_errorbar(aes(ymin = lower_95, ymax = upper_95), width = 0.2, size = 0.7) +
+  annotate("text", x = 150, y = 0.05, 
+           label = paste("R² =", round(overall_r_squared, 2)), size = 5, color = "black")
+  theme_minimal()
+  
 
 
 
@@ -613,22 +640,6 @@ ggplot(lat_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = spec
 #geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
 
 
-## variation between/within species 
-
-vc <- VarCorr(fit)
-vc.df <- data.frame(vc$species)
-vc.df$cov
-
-cov_matrix <- vc$species[[1]]$cov
-
-# Extract the variance components (diagonal of the covariance matrix)
-inter_var <- cov_matrix[1, 1]  # Extract variance for the random intercept
-
-intra_var <- sigma(fit)^2
-
-# Display the extracted variance components
-inter_var
-intra_var
 
 
 

@@ -24,7 +24,7 @@ library(forcats)
 library(kableExtra)
 library(gridExtra)  # for grid.table()
 
-# setwd("~/Desktop/Thesis_25")
+#setwd("~/Desktop/Thesis_25")
 
 df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
 df_flr_final_filtered <- read_rds("Data/df_flr_final_filtered.rds")
@@ -189,8 +189,11 @@ overall_terms  <- c(species_main, "life_historyperennial", species_int)
 # 2) grab the full posterior as a tibble
 draws_df <- as_draws_df(fit)
 
+# Sample 1% of the dataset for testing
+draws_df_sample <- draws_df[sample(nrow(draws_df), size = 0.01 * nrow(draws_df)), ]
+
 # 3) species‐specific totals
-fixed_long <- draws_df %>%
+fixed_long <- draws_df_sample %>%
   tidyr::pivot_longer(
     cols      = starts_with("b_"),
     names_to  = "param",
@@ -199,7 +202,10 @@ fixed_long <- draws_df %>%
   mutate(param = str_remove(param, "^b_")) %>%
   filter(param %in% species_terms)
 
-random_long <- draws_df %>%
+
+
+
+random_long <- draws_df_sample %>%
   tidyr::pivot_longer(
     cols      = starts_with("r_species"),
     names_to  = "raw",
@@ -320,6 +326,9 @@ overall_draws2 <- overall_draws2 %>%
     term_lab = factor(term_lab, levels = term_levels)
   ) %>%
   dplyr::select(.draw, term_lab, estimate = estimate, mean_eff, effect_cat)
+
+saveRDS(species_draws2, file="Data/species_draws2.rds") 
+
 
 # 1 - Overall parameters plot ----
 # Define shared palette
