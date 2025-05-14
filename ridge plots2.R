@@ -200,7 +200,7 @@ draws_df <- as_draws_df(fit)
 draws_df_sample <- draws_df[sample(nrow(draws_df), size = 0.01 * nrow(draws_df)), ]
 
 # 3) species‐specific totals
-fixed_long <- draws_df %>%
+fixed_long <- draws_df_sample %>%
   tidyr::pivot_longer(
     cols      = starts_with("b_"),
     names_to  = "param",
@@ -209,7 +209,7 @@ fixed_long <- draws_df %>%
   mutate(param = str_remove(param, "^b_")) %>%
   filter(param %in% species_terms)
 
-random_long <- draws_df %>%
+random_long <- draws_df_sample %>%
   tidyr::pivot_longer(
     cols      = starts_with("r_species"),
     names_to  = "raw",
