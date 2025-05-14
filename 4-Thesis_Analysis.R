@@ -162,8 +162,14 @@ fit3 <- readRDS("Data/fit3.RDS")
 saveRDS(fit, file = "Data/fit_full.RDS")
 fit_full <- readRDS("Data/fit_full.RDS") 
 
+saveRDS(fit, file = "Data/fit_fullselect1.RDS")
+fit_fullselect1 <- readRDS("Data/fit_fullselect1.RDS") 
+fit_fullselect1
+
 loo1 <- loo(fit_full)
-loo1
+loo2 <- loo(fit_fullselect1)
+loo <- loo(fit_full, fit_fullselect1)
+loo
 
 
 #prep for plotting 
@@ -175,6 +181,8 @@ spp
 life_history <- unique(original_data$life_history)
 life_history
 
+params <- get_variables(fit)
+write_csv(tibble(parameter = params), file = "Analysis_Output/fit_full_params.csv")
 
 ## Initial Plot Creation ----
 # Create a new data set to predict over
@@ -199,14 +207,15 @@ fitted.pred <- fitted.pred %>%
 
 # Plot
 #fit#_LatDOY_plot
-lat <- ggplot(fitted.pred, aes(x = latitude , y = DOY_pred)) +
-  stat_lineribbon(.width = c(.5,.9),show.legend=TRUE,  color = 'dodgerblue1', alpha = 0.5) +
-  labs(y = NULL, x="Latitude") +
+lat <- ggplot(fitted.pred, aes(x = latitude, y = DOY_pred)) +
+  geom_point(data = data, aes(x = latitude, y = doy), color = "grey", alpha = 0.4) +
+  stat_lineribbon(aes(y = DOY_pred), .width = c(0.5, 0.9), 
+                  color = 'dodgerblue1', alpha = 0.5) +
+  labs(y = NULL, x = "Latitude") +
   scale_fill_brewer(palette = "Greys", guide = "none") +
-  theme_minimal() 
-#ggsave("Figures/DOY_latitude.pdf", width=5, height=4)
-lat
+  theme_minimal()
 
+lat
 
 #Temp vs DOY
 data.predict <- crossing(
@@ -232,6 +241,7 @@ fitted.pred <- fitted.pred %>%
 # Plot
 # fit#_TempDOY_plot
 temp <- ggplot(fitted.pred, aes(x = spring_temp , y = DOY_pred)) +
+  geom_point(data = data, aes(x = spring_temp, y = doy), color = "grey", alpha = 0.4) +
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE, color = 'dodgerblue1', alpha = 0.5) +
   scale_fill_brewer(palette = "Greys", guide = "none") +
   labs(x = "Spring Temperature", y= "Day of Flowering (DOY)") +
@@ -262,6 +272,7 @@ fitted.pred <- fitted.pred %>%
 # Plot
 # fit#_precipDOY_plot
 precip <- ggplot(fitted.pred, aes(x = spring_precip , y = DOY_pred))+
+  geom_point(data = data, aes(x = spring_precip, y = doy), color = "grey", alpha = 0.4) +
   stat_lineribbon(.width = c(.5,.9),show.legend=TRUE, color = 'dodgerblue1', alpha = 0.5) +
   labs(x = "Spring Precipitation", y  = NULL) +
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -389,6 +400,9 @@ ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spri
 #Saving large figure 1 
 top_plots <- temp + lat + precip
 top_plots
+ggsave(plot=top_plots,"Analysis_Images/figure1_draft.pdf", width=6, height=4)
+
+
 bottom_plots <- temp_elev + temp_lat + temp_precip
 bottom_plots
 
@@ -400,76 +414,10 @@ all_fig1
 
 ## Density plots - species specific ----
 
-get_variables(fit)
-
-#Intercept
-fit %>%
-  spread_draws(b_Intercept, r_species[species, Intercept]) %>%
-  mutate(species_mean = b_Intercept + r_species) %>%
-  ggplot(aes(y = species, x = species_mean)) +
-  stat_halfeye(.width = c(0.66, 0.95)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
-  labs(
-    x = "Mean Intecept Estimate",
-    y = "Species"
-  ) +
-  theme_minimal()
-
-#temp
-fit %>%
-  spread_draws(b_stemp_sc, r_species[species, stemp_sc]) %>%
-  mutate(species_mean = b_stemp_sc + r_species) %>%
-  ggplot(aes(y = species, x = species_mean)) +
-  stat_halfeye(.width = c(0.66, 0.95)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
-  labs(
-    x = "Mean Spring Temp Estimate",
-    y = "Species"
-  ) +
-  theme_minimal()
-
-#latitude
-fit %>%
-  spread_draws(b_latitude_sc, r_species[species, latitude_sc]) %>%
-  mutate(species_mean = b_latitude_sc + r_species) %>%
-  ggplot(aes(y = species, x = species_mean)) +
-  stat_halfeye(.width = c(0.66, 0.95)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
-  labs(
-    x = "Mean Latitude Estimate",
-    y = "Species"
-  ) +
-  theme_minimal()
-
-#precip
-fit %>%
-  spread_draws(b_sprecip_sc, r_species[species, sprecip_sc]) %>%
-  mutate(species_mean = b_sprecip_sc + r_species) %>%
-  ggplot(aes(y = species, x = species_mean)) +
-  stat_halfeye(.width = c(0.66, 0.95)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
-  labs(
-    x = "Mean precip Estimate",
-    y = "Species"
-  ) +
-  theme_minimal()
-
-#elevation
-fit %>%
-  spread_draws(b_elevation_sc, r_species[species, elevation_sc]) %>%
-  mutate(species_mean = b_elevation_sc + r_species) %>%
-  ggplot(aes(y = species, x = species_mean)) +
-  stat_halfeye(.width = c(0.66, 0.95)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
-  labs(
-    x = "Mean elevation Estimate",
-    y = "Species"
-  ) +
-  theme_minimal()
-
 # comparison of species specific slopes to mean doy 
 species_draws2 <- read_rds("Data/species_draws2.rds")
-species_summary <- read.csv("species_summary.csv")
+species_summary <- read.csv("Analysis_Output/species_summary.csv")
+overall_summary <- read.csv("Analysis_Output/overall_summary.csv")
 dim(species_summary)
 species_summary$species <- gsub("\\.", " ", species_summary$species)
 species_summary
@@ -502,6 +450,28 @@ ggplot(temp_eff.plot, aes( x = doy, y = mean_est, color = species)) + geom_point
   annotate("text", x = 150, y = 0.05, 
            label = paste("R² =", round(overall_r_squared, 2)), size = 5, color = "black")
   theme_minimal()
+  
+## create general plots 
+
+#1 term
+colnames(species_summary)
+
+stacked_species_draw.plot <-ggplot(species_draws2, aes(x = total, y = term_lab, fill = species)) +
+  geom_density_ridges(
+    scale = 1,
+    alpha = 0.3,
+    quantile_lines = FALSE,
+    quantiles = c(0.025, 0.5, 0.975),
+  ) +
+  labs(y = NULL, 
+       x = "Mean Estimate") +
+  geom_vline(xintercept = 0, color = "red" ,linetype = "dashed", linewidth = 1) +
+  theme_minimal() 
+  
+stacked_species_draw.plot <- stacked_species_draw.plot + theme(legend.position = "none")
+stacked_species_draw.plot
+
+ggsave(plot=stacked_species_draw.plot,"Analysis_Images/full_model/stacked_species_draw.pdf", width=7, height=3.5)
   
 
 

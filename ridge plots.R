@@ -170,11 +170,12 @@ life_history
 
 
 ## ridge plots of posterior distributions ----
+get_variables(fit)
 
 # 1) Define which terms get species‐specific random slopes vs overall only
 species_main   <- c("latitude_sc","stemp_sc","elevation_sc","sprecip_sc")
 species_int    <- c(
-  "latitude_sc:stemp_sc", 
+  "b_latitude_sc:stemp_sc", 
   "latitude_sc:elevation_sc", 
   "latitude_sc:sprecip_sc",
   "stemp_sc:elevation_sc", 
@@ -312,6 +313,7 @@ int_labs  <- c(
   "Elevation × Precipitation"
 )
 term_levels <- c(main_labs, int_labs)
+term_levels
 
 species_draws2 <- species_draws2 %>%
   mutate(
@@ -328,6 +330,7 @@ overall_draws2 <- overall_draws2 %>%
   dplyr::select(.draw, term_lab, estimate = estimate, mean_eff, effect_cat)
 
 saveRDS(species_draws2, file="Data/species_draws2.rds") 
+
 
 
 # 1 - Overall parameters plot ----
@@ -359,6 +362,7 @@ p_climate <- overall_draws2 %>%
     axis.text.y     = element_text(face = "bold"),
     legend.position = "none"
   )
+p_climate
 
 # Life‑history panel (no legend, squashed vertically)
 p_life <- overall_draws2 %>% 
@@ -381,6 +385,8 @@ p_life <- overall_draws2 %>%
     plot.margin     = margin(t = 5, r = 5, b = 5, l = 5),
     aspect.ratio    = 1.8     # squashes it to half the height
   )
+p_life
+
 
 # Stitch together and collect one shared legend, on the right
 combined <- (p_climate | p_life) +
