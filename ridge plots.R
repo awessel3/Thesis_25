@@ -158,6 +158,7 @@ loo_compare(loo1, loo2)
 
 # A) Plot FULL MODEL -----
 fit <- fit_full
+fit<- fit_fullselect1
 summary(fit)
 
 original_data <- fit$data 
@@ -175,7 +176,7 @@ get_variables(fit)
 # 1) Define which terms get species‐specific random slopes vs overall only
 species_main   <- c("latitude_sc","stemp_sc","elevation_sc","sprecip_sc")
 species_int    <- c(
-  "b_latitude_sc:stemp_sc", 
+  "latitude_sc:stemp_sc", 
   "latitude_sc:elevation_sc", 
   "latitude_sc:sprecip_sc",
   "stemp_sc:elevation_sc", 
@@ -202,8 +203,6 @@ fixed_long <- draws_df_sample %>%
   ) %>%
   mutate(param = str_remove(param, "^b_")) %>%
   filter(param %in% species_terms)
-
-
 
 
 random_long <- draws_df_sample %>%
@@ -329,7 +328,9 @@ overall_draws2 <- overall_draws2 %>%
   ) %>%
   dplyr::select(.draw, term_lab, estimate = estimate, mean_eff, effect_cat)
 
-saveRDS(species_draws2, file="Data/species_draws2.rds") 
+
+saveRDS(species_draws2, file="Data/species_draws2_woelevation.rds") #for fit_fullselect1
+saveRDS(species_draws2, file="Data/species_draws2.rds") #for fit_full 
 
 
 
