@@ -184,6 +184,9 @@ life_history
 params <- get_variables(fit)
 write_csv(tibble(parameter = params), file = "Analysis_Output/fit_full_params.csv")
 
+
+
+
 ## Initial Plot Creation ----
 # Create a new data set to predict over
 data.predict <- crossing(
@@ -286,7 +289,7 @@ data.predict <- crossing(
   elevation_sc = mean(original_data$elevation_sc, na.rm = TRUE), # predictions at mean elevation
   stemp_sc = seq(min(original_data$stemp_sc), max(original_data$stemp_sc), length.out = 100), # temperature range
   sprecip_sc = mean(original_data$sprecip_sc, na.rm = TRUE), # mean precipitation
-  latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 5),
+  latitude_sc = seq(min(original_data$latitude_sc), max(original_data$latitude_sc), length.out = 2),
   species = spp,
   life_history = life_history
 )
@@ -300,10 +303,6 @@ fitted.pred <- fitted.pred %>%
          spring_temp = (stemp_sc * stemp_scale) + stemp_center,
          latitude = (latitude_sc * latitude_scale) + latitude_center)
 
-#color palette 
-palette_blues <- colorRampPalette(colors = c("white", "#004b88"))(12)
-scales::show_col(palette_blues[4:12])
-
 # Plot
 # fit#_TempLatDOY_plot
 temp_lat <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
@@ -316,7 +315,13 @@ temp_lat
 
 
 # SS_fit#_TempLatDOY_plot
-SS_temp_lat <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
+fitted.pred_SS <- fitted.pred %>% 
+  filter(species %in% sig_species)
+head(fitted.pred)
+sig_species
+colnames(fitted.pred)
+
+SS_temp_lat <- ggplot(fitted.pred_SS, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE,  alpha = 0.5) + 
   scale_color_brewer(palette = "Dark2", name = "Latitude") +  
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -436,24 +441,32 @@ temp_eff.plot <- left_join(temp_eff, avg_doy, by = "species")
 dim(temp_eff.plot)
 temp_eff.plot
 
+temp_eff.plot <- temp_eff.plot %>%
+  mutate(mean_est_unscaled = mean_est * (doy_scale / stemp_scale),
+          lower_95_unscaled = lower_95 * (doy_scale / stemp_scale),
+          upper_95_unscaled = upper_95 * (doy_scale / stemp_scale))
+
 overall_model <- lm(mean_est ~ doy, data = temp_eff.plot)
 
 # Get the R-squared value
 overall_r_squared <- summary(overall_model)$r.squared
-
+summary(overall_model)
 temp_eff.plot
 
-ggplot(temp_eff.plot, aes( x = doy, y = mean_est, color = species)) + geom_point() + 
+
+tempdoy_eff.plot <-ggplot(temp_eff.plot, aes( x = doy, y = mean_est_unscaled, color = species)) + geom_point() + 
+  geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), width = 0.2, size = 0.7, alpha = 0.4) +
   stat_smooth(method = "lm", formula = y ~ x, color = "black", size = 0.75) +
   geom_hline(yintercept = 0, color = "red", linetype = "dashed") + 
-  geom_errorbar(aes(ymin = lower_95, ymax = upper_95), width = 0.2, size = 0.7) +
-  annotate("text", x = 150, y = 0.05, 
-           label = paste("R² =", round(overall_r_squared, 2)), size = 5, color = "black")
+  labs(x = "Mean Temperature Sensitivity (C°/days)") + 
+  annotate("text", x = 150, y = 3, 
+           label = paste("R² =", round(overall_r_squared, 2)), size = 5, color = "black") +
   theme_minimal()
+tempdoy_eff.plot
+
+ggsave(plot= tempdoy_eff.plot,"Analysis_Images/earlylate_draft.pdf", width=8, height=4)
   
 ## create general plots 
-
-#1 term
 colnames(species_summary)
 
 stacked_species_draw.plot <-ggplot(species_draws2, aes(x = total, y = term_lab, fill = species)) +
@@ -472,7 +485,57 @@ stacked_species_draw.plot <- stacked_species_draw.plot + theme(legend.position =
 stacked_species_draw.plot
 
 ggsave(plot=stacked_species_draw.plot,"Analysis_Images/full_model/stacked_species_draw.pdf", width=7, height=3.5)
-  
+
+
+# plot for temp x lat interaction. heatmap 
+
+species_summary_wo <- read.csv("Analysis_Output/species_summary_woelevation.csv")
+overall_summary_wo <- read.csv("Analysis_Output/overall_summary_woelevation.csv")
+species_summary_wo$species <- gsub("\\.", " ", species_summary_wo$species)
+colnames(species_summary)
+
+#create list of templat that are no species-specific significant for temp x lat
+templat_sig <- species_summary_wo %>% 
+  filter(term_lab %in% c("Latitude × Temperature")) %>% 
+  filter(!(effect_cat %in% c("Positive (<90%)", "Negative (<90%)")))
+sig_species <- unique(templat_sig$species)
+
+#filter to just templat
+templat_draws <- species_summary_wo %>% 
+  filter(term_lab %in% c("Latitude × Temperature", "Latitude", "Temperature")) 
+dim(templat_draws)
+
+templat_plot <- templat_draws %>%
+  mutate(
+    effect_sign = case_when(
+      effect_cat %in% c("Positive (<90%)", "Negative (<90%)") ~ 0,
+      mean_est > 0 ~ 1,
+      mean_est < 0 ~ -1
+    )
+  )
+
+
+templat_plot$term_lab <- factor(templat_draws$term_lab,
+                                 levels = c("Latitude", "Temperature", "Latitude × Temperature")
+)
+
+
+ggplot(templat_plot, aes(x = term_lab, y = species, fill = effect_sign)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    low = "salmon", mid = "lightgrey", high = "dodgerblue", midpoint = 0,
+    name = "Effect Size"
+  ) +
+  scale_x_discrete(position = "top") + 
+  labs(
+    x = "Term",
+    y = "Species") +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 8),
+    panel.grid = element_blank()
+  )
+
 
 
 

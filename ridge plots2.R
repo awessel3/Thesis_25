@@ -196,6 +196,9 @@ overall_terms  <- c(species_main, "life_historyperennial", species_int, life_his
 # 2) grab the full posterior as a tibble
 draws_df <- as_draws_df(fit)
 
+# Sample 1% of the dataset for testing (for my scripts to run)
+draws_df_sample <- draws_df[sample(nrow(draws_df), size = 0.01 * nrow(draws_df)), ]
+
 # 3) species‐specific totals
 fixed_long <- draws_df %>%
   tidyr::pivot_longer(

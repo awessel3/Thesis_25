@@ -330,6 +330,8 @@ overall_draws2 <- overall_draws2 %>%
 
 
 saveRDS(species_draws2, file="Data/species_draws2_woelevation.rds") #for fit_fullselect1
+saveRDS(overall_draws2, file="Data/overall_draws2_woelevation.rds") #for fit_fullselect1
+
 saveRDS(species_draws2, file="Data/species_draws2.rds") #for fit_full 
 
 
@@ -406,6 +408,7 @@ combined <- (p_climate | p_life) +
     legend.title     = element_text(size = 10)
   )
 combined
+
 ggsave(plot=combined,"Analysis_Images/full_model/overall_params.pdf", width=7, height=3.5)
 
 # 2 - Species‐specific ridge plot----
@@ -506,8 +509,13 @@ kable(
 
 
 # 1) Save to CSV
-write.csv(overall_summary, "overall_summary.csv", row.names = FALSE)
-write.csv(species_summary, "species_summary.csv", row.names = FALSE)
+
+write.csv(overall_summary, "Analysis_Output/overall_summary_woelevation.csv", row.names = FALSE) # for fit_fullselect1
+write.csv(species_summary, "Analysis_Output/species_summary_woelevation.csv", row.names = FALSE) # for fit_fullselect1
+
+
+write.csv(overall_summary, "Analysis_Output/overall_summary.csv", row.names = FALSE)
+write.csv(species_summary, "Analysis_Output/species_summary.csv", row.names = FALSE)
 
 # 2) Save overall_summary to PDF
 library(gridExtra)
