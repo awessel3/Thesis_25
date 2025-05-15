@@ -120,8 +120,12 @@ formula_select1 <- doy_sc ~ 1 +
   latitude_sc * stemp_sc * sprecip_sc * life_history + elevation + 
   (1 + latitude_sc * stemp_sc * sprecip_sc + elevation_sc | species)
 
+formula_select2 <- doy_sc ~ 1 + 
+  latitude_sc * stemp_sc * sprecip_sc * elevation + 
+  (1 + latitude_sc * stemp_sc * sprecip_sc * elevation_sc | species)
+
 fit <- brm(
-  formula = formula_select1,
+  formula = formula_select2,
   data = data,
   family = gaussian(),  
   #control = list(adapt_delta = 0.99, max_treedepth = 15),
@@ -321,7 +325,7 @@ head(fitted.pred)
 sig_species
 colnames(fitted.pred)
 
-SS_temp_lat <- ggplot(fitted.pred_SS, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
+SS_temp_lat <- ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(latitude, 1)))) + 
   stat_lineribbon(.width = c(0.5, 0.9), show.legend = TRUE,  alpha = 0.5) + 
   scale_color_brewer(palette = "Dark2", name = "Latitude") +  
   scale_fill_brewer(palette = "Greys", guide = "none") +
@@ -421,6 +425,9 @@ all_fig1
 
 # comparison of species specific slopes to mean doy 
 species_draws2 <- read_rds("Data/species_draws2.rds")
+species_draws2_wo <- read_rds("Data/species_draws2_woelevation.rds")
+
+
 species_summary <- read.csv("Analysis_Output/species_summary.csv")
 overall_summary <- read.csv("Analysis_Output/overall_summary.csv")
 dim(species_summary)
@@ -458,7 +465,7 @@ tempdoy_eff.plot <-ggplot(temp_eff.plot, aes( x = doy, y = mean_est_unscaled, co
   geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), width = 0.2, size = 0.7, alpha = 0.4) +
   stat_smooth(method = "lm", formula = y ~ x, color = "black", size = 0.75) +
   geom_hline(yintercept = 0, color = "red", linetype = "dashed") + 
-  labs(x = "Mean Temperature Sensitivity (C°/days)") + 
+  labs(y = "Mean Temperature Sensitivity (C°/days)", x = "Day of Flowering (DOY)") + 
   annotate("text", x = 150, y = 3, 
            label = paste("R² =", round(overall_r_squared, 2)), size = 5, color = "black") +
   theme_minimal()
@@ -469,7 +476,7 @@ ggsave(plot= tempdoy_eff.plot,"Analysis_Images/earlylate_draft.pdf", width=8, he
 ## create general plots 
 colnames(species_summary)
 
-stacked_species_draw.plot <-ggplot(species_draws2, aes(x = total, y = term_lab, fill = species)) +
+stacked_species_draw.plot <-ggplot(species_draws2_wo, aes(x = total, y = term_lab, fill = species)) +
   geom_density_ridges(
     scale = 1,
     alpha = 0.3,
@@ -520,7 +527,7 @@ templat_plot$term_lab <- factor(templat_draws$term_lab,
 )
 
 
-ggplot(templat_plot, aes(x = term_lab, y = species, fill = effect_sign)) +
+templat.plot <- ggplot(templat_plot, aes(x = term_lab, y = species, fill = effect_sign)) +
   geom_tile(color = "white") +
   scale_fill_gradient2(
     low = "salmon", mid = "lightgrey", high = "dodgerblue", midpoint = 0,
@@ -536,7 +543,8 @@ ggplot(templat_plot, aes(x = term_lab, y = species, fill = effect_sign)) +
     panel.grid = element_blank()
   )
 
-
+templat.plot <- templat.plot + theme(legend.position = "none")
+templat.plot
 
 
 

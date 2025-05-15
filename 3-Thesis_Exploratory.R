@@ -12,6 +12,9 @@ library(GGally)
 
 setwd("~/Desktop/Thesis_25")
 
+
+#frequency of observations
+
 #general precip and temp 
 precip <- ggplot(data = test.data, 
                  aes(x = precip, y = doy)) + 
