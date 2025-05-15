@@ -170,11 +170,12 @@ life_history
 
 
 ## ridge plots of posterior distributions ----
+get_variables(fit)[1:25]
 
 # 1) Define which terms get species‐specific random slopes vs overall only
 species_main   <- c("latitude_sc","stemp_sc","elevation_sc","sprecip_sc")
 species_int    <- c(
-  "latitude_sc:stemp_sc", 
+  "stemp_sc:latitude_sc",  # Changed from "latitude_sc:stemp_sc"
   "latitude_sc:elevation_sc", 
   "latitude_sc:sprecip_sc",
   "stemp_sc:elevation_sc", 
@@ -195,12 +196,12 @@ overall_terms  <- c(species_main, "life_historyperennial", species_int, life_his
 
 # 2) grab the full posterior as a tibble
 draws_df <- as_draws_df(fit)
-
-# Sample 1% of the dataset for testing (for my scripts to run)
-draws_df_sample <- draws_df[sample(nrow(draws_df), size = 0.01 * nrow(draws_df)), ]
+# options(max.print = 1000000)
+names(draws_df)[1:100]
+# ! try to just keep the b_columns
 
 # 3) species‐specific totals
-fixed_long <- draws_df_sample %>%
+fixed_long <- draws_df %>%
   tidyr::pivot_longer(
     cols      = starts_with("b_"),
     names_to  = "param",
@@ -209,19 +210,35 @@ fixed_long <- draws_df_sample %>%
   mutate(param = str_remove(param, "^b_")) %>%
   filter(param %in% species_terms)
 
-random_long <- draws_df_sample %>%
+# Create a mapping function to convert between fixed and random effect naming
+map_fixed_to_random <- function(fixed_param) {
+  case_when(
+    fixed_param == "stemp_sc:latitude_sc" ~ "latitude_sc:stemp_sc",
+    # Add other mappings if needed, but most seem to match already
+    TRUE ~ fixed_param
+  )
+}
+
+# Update your random effects extraction with the mapping
+random_long <- draws_df %>%
   tidyr::pivot_longer(
     cols      = starts_with("r_species"),
-    names_to  = "raw",
+    names_to  = "raw", 
     values_to = "random"
   ) %>%
   mutate(
     species = str_extract(raw, "(?<=\\[)[^,]+"),
-    param   = str_extract(raw, "(?<=,)[^\\]]+")
+    param_random = str_extract(raw, "(?<=,)[^\\]]+"),
+    # Map the random effect name back to the fixed effect name
+    param = case_when(
+      param_random == "latitude_sc:stemp_sc" ~ "stemp_sc:latitude_sc",
+      TRUE ~ param_random
+    )
   ) %>%
-  dplyr::select(-raw) %>%
+  dplyr::select(-raw, -param_random) %>%
   filter(param %in% species_terms)
 
+# Continue with the rest of your code for joining fixed and random effects
 species_draws <- dplyr::inner_join(
   fixed_long, random_long,
   by = c(".chain", ".iteration", ".draw", "param")
@@ -319,7 +336,7 @@ main_labs <- c("Temperature","Precipitation","Latitude","Elevation","Life histor
 climate_int_labs  <- c(
   "Temperature × Precipitation",
   "Temperature × Elevation",
-  "Latitude × Temperature",
+  "Temperature × Latitude",  # Changed from "Latitude × Temperature"
   "Latitude × Elevation",
   "Latitude × Precipitation",
   "Elevation × Precipitation"
@@ -331,20 +348,44 @@ life_int_labs <- c(
   "Elevation × Life history"
 )
 
-term_levels <- c(main_labs, climate_int_labs, life_int_labs)
+term_levels <- rev(c(main_labs, climate_int_labs, life_int_labs))
+
+
 species_draws2 <- species_draws2 %>%
   mutate(
     term_lab = map_chr(param, relabel),
     term_lab = factor(term_lab, levels = term_levels)
-  ) %>%
-  dplyr::select(.draw, species, term_lab, total, mean_eff, effect_cat)
+  ) #%>%
+  #dplyr::select(.draw, species, term_lab, total, mean_eff, effect_cat)
 
 overall_draws2 <- overall_draws2 %>%
   mutate(
     term_lab = map_chr(param, relabel),
     term_lab = factor(term_lab, levels = term_levels)
-  ) %>%
-  dplyr::select(.draw, term_lab, estimate = estimate, mean_eff, effect_cat)
+  )# %>%
+#  dplyr::select(.draw, term_lab, estimate = estimate, mean_eff, effect_cat)
+
+
+# # debug
+# # Check what parameters are in each dataset
+# cat("Parameters in species_draws2:\n")
+# unique(species_draws2$param) %>% sort() %>% print()
+# 
+# cat("\nParameters in overall_draws2:\n")
+# unique(overall_draws2$param) %>% sort() %>% print()
+# 
+# # Check the term labels
+# cat("\nTerm labels in species_draws2:\n")
+# table(species_draws2$term_lab)
+# 
+# cat("\nTerm labels in overall_draws2:\n")
+# table(overall_draws2$term_lab)
+# 
+# # Check if the problematic interaction exists in the original data
+# cat("\nChecking for stemp_sc:latitude_sc in species_draws:\n")
+# print(unique(species_draws$param))
+
+
 
 # 1 - Overall parameters plot ----
 # Define shared palette
