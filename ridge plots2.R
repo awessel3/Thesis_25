@@ -200,6 +200,9 @@ draws_df <- as_draws_df(fit)
 names(draws_df)[1:100]
 # ! try to just keep the b_columns
 
+# Sample 1% of the dataset for testing
+draws_df <- draws_df[sample(nrow(draws_df), size = 0.01 * nrow(draws_df)), ]
+
 # 3) species‐specific totals
 fixed_long <- draws_df %>%
   tidyr::pivot_longer(
@@ -438,6 +441,7 @@ p_life <- overall_draws2 %>%
     plot.margin     = margin(t = 5, r = 5, b = 5, l = 5),
     aspect.ratio    = 1.8     # squashes it to half the height
   )
+p_life
 
 # Stitch together and collect one shared legend, on the right
 combined <- (p_climate | p_life) +
@@ -493,6 +497,9 @@ p_species <- ggplot(species_draws2,
   )
 p_species
 ggsave(plot=p_species,"Analysis_Images/full_model/species_params.pdf", width=8, height=10)
+
+saveRDS(overall_draws2, "Data/overall_draws2.rds")
+saveRDS(species_draws2, "Data/species_draws2.rds")
 
 # Parameter Tables ----
 
