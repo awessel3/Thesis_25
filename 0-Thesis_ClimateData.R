@@ -25,7 +25,7 @@ length(unique(all_flr$scientific_name))
 all_flr$scientific_name <- gsub("^([A-Za-z]+(?:\\s+[A-Za-z]+){1}).*", "\\1", all_flr$scientific_name)
 length(unique(all_flr$scientific_name))
 
-#Part 2: No Annotation Dataset
+# Part 2: No Annotation Dataset
 no_ann <- read.csv("Raw Full Dataset/full_apr725_2.csv")
 
 # removing subspecies
