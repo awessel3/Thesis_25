@@ -407,7 +407,7 @@ ggplot(fitted.pred, aes(x = spring_temp, y = DOY_pred, color = factor(round(spri
   theme_minimal()
 
 #Saving large figure 1 
-top_plots <- temp + lat + precip
+
 top_plots
 ggsave(plot=top_plots,"Analysis_Images/figure1_draft.pdf", width=6, height=4)
 
@@ -451,9 +451,7 @@ temp_eff.plot
 temp_eff.plot <- temp_eff.plot %>%
   mutate(mean_est_unscaled = mean_est * (doy_scale / stemp_scale),
           lower_95_unscaled = lower_95 * (doy_scale / stemp_scale),
-          upper_95_unscaled = upper_95 * (doy_scale / stemp_scale))
 
-overall_model <- lm(mean_est ~ doy, data = temp_eff.plot)
 
 # Get the R-squared value
 overall_r_squared <- summary(overall_model)$r.squared
@@ -472,17 +470,19 @@ tempdoy_eff.plot <-ggplot(temp_eff.plot, aes( x = doy, y = mean_est_unscaled, co
 tempdoy_eff.plot
 
 ggsave(plot= tempdoy_eff.plot,"Analysis_Images/earlylate_draft.pdf", width=8, height=4)
+
   
 ## create general plots 
 colnames(species_summary)
 
-stacked_species_draw.plot <-ggplot(species_draws2_wo, aes(x = total, y = term_lab, fill = species)) +
+
   geom_density_ridges(
     scale = 1,
     alpha = 0.3,
     quantile_lines = FALSE,
     quantiles = c(0.025, 0.5, 0.975),
   ) +
+
   labs(y = NULL, 
        x = "Mean Estimate") +
   geom_vline(xintercept = 0, color = "red" ,linetype = "dashed", linewidth = 1) +
@@ -496,6 +496,7 @@ ggsave(plot=stacked_species_draw.plot,"Analysis_Images/full_model/stacked_specie
 
 # plot for temp x lat interaction. heatmap 
 
+
 species_summary_wo <- read.csv("Analysis_Output/species_summary_woelevation.csv")
 overall_summary_wo <- read.csv("Analysis_Output/overall_summary_woelevation.csv")
 species_summary_wo$species <- gsub("\\.", " ", species_summary_wo$species)
@@ -504,12 +505,12 @@ colnames(species_summary)
 #create list of templat that are no species-specific significant for temp x lat
 templat_sig <- species_summary_wo %>% 
   filter(term_lab %in% c("Latitude × Temperature")) %>% 
+
   filter(!(effect_cat %in% c("Positive (<90%)", "Negative (<90%)")))
 sig_species <- unique(templat_sig$species)
 
 #filter to just templat
-templat_draws <- species_summary_wo %>% 
-  filter(term_lab %in% c("Latitude × Temperature", "Latitude", "Temperature")) 
+
 dim(templat_draws)
 
 templat_plot <- templat_draws %>%
@@ -523,7 +524,7 @@ templat_plot <- templat_draws %>%
 
 
 templat_plot$term_lab <- factor(templat_draws$term_lab,
-                                 levels = c("Latitude", "Temperature", "Latitude × Temperature")
+
 )
 
 
@@ -535,11 +536,13 @@ templat.plot <- ggplot(templat_plot, aes(x = term_lab, y = species, fill = effec
   ) +
   scale_x_discrete(position = "top") + 
   labs(
+
     x = "Term",
     y = "Species") +
   theme_minimal() +
   theme(
     axis.text.y = element_text(size = 8),
+
     panel.grid = element_blank()
   )
 
@@ -549,6 +552,7 @@ templat.plot
 
 
 ## Creating phenological sensitivity plot ----
+
 
 ## Random Slopes just for Temp 
 # view variables that can be extracted 
@@ -602,6 +606,7 @@ ggplot(temp_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = spe
   stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
   geom_hline(yintercept = 0) 
   #geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
+
 
 # life history comparison plot 
 
@@ -677,8 +682,7 @@ lat_ps_plot_dat
 ggplot(lat_ps_plot_dat, aes(x = mean_doy, y = sensitivity_unscaled, color = species)) +
   geom_point(size = 3, aes(color = species)) + 
   stat_smooth(method = "lm", formula = y ~ x, color = "black", linewidth = 0.75) + 
-  geom_hline(yintercept = 0) 
-#geom_errorbar(aes(ymin = lower_95_unscaled, ymax = upper_95_unscaled), linewidth = 1, size = 0.7)
+
 
 
 
