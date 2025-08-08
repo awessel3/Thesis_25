@@ -9,8 +9,6 @@ library(modelr)
 library(loo)
 library(RColorBrewer)
 
-
-
 # Analysis R Script 
 library(brms)
 library(ggridges)
@@ -20,9 +18,10 @@ library(stringr)
 
 setwd("~/Desktop/Thesis_25")
 
-df_flr_final_summary <- read_rds("Data/df_flr_final_summary.rds")
+df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
 df_flr_final_filtered <- read_rds("Data/df_flr_final_filtered.rds")
 dim(df_flr_final_filtered)
+dim(df_flr_final_complete)
 
 ## old trait data prep ---- 
 #trait_species <- read.csv("trait_species.csv")

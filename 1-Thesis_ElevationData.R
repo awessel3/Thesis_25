@@ -9,6 +9,8 @@ library(ggplot2)
 setwd("/Users/avawessel/Desktop/Thesis_25")
 getwd()
 
+############## PROCESS ELEVATION DATA ################### 
+
 
 # Retrieving Elevation Data R Script 
 

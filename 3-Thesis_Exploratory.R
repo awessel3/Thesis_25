@@ -12,6 +12,15 @@ library(GGally)
 
 setwd("~/Desktop/Thesis_25")
 
+df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
+test.data <- df_flr_final_complete
+
+test.data <- df_flr_final_filtered  %>% dplyr::select(latitude, longitude, species, elevation, 
+                                                      doy, precip, temp, life_history,
+                                                      spring_temp, spring_precip)
+test.data <- na.omit(test.data)
+dim(test.data)
+
 
 #frequency of observations
 
