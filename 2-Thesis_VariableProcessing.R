@@ -37,8 +37,33 @@ ggplot(df_flr_final_complete, aes(x = spring_precip, y = doy)) + geom_point()
 
 ## Part 2: Observation bias filtering 
 
+coords_filter <- df_flr_final_complete 
+coords_filter$dataset <- "clean"
 
+# geographic cleaning 
+coords.test <- clean_coordinates(coords_filter, lat = "latitude", lon = "longitude",
+                                 tests = c("capitals",
+                                       "centroids","equal",
+                                       "gbif",
+                                       "outliers", "seas",
+                                       "zeros"))
+summary(coords.test)
 
+# coordinate conversion cleaning 
+clean_dataset(coords_filter, lat = "latitude", lon = "longitude",  ds = "dataset") #returning nothing problematic
+
+tests <- c(".zer",".cap",".cen", ".otl", ".sea", ".gbf", ".summary", '.equ', '.val')
+
+coords.test2 <- coords.test %>%
+  filter(rowSums(dplyr::select(., all_of(tests)) == FALSE) == 0)
+dim(coords.test)
+dim(coords.test2)
+
+# join data with removed coordinates
+
+colnames(coords.test2)
+df_flr_final_filtered <- right_join(df_flr_final_complete, coords.test2, by = 'id')
+dim(df_flr_final_filtered)
 
 ## Part 3: filtering for odd observations
 
