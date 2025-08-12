@@ -86,7 +86,7 @@ full_range_flr_complete <- coords.test2
 full_range_flr_complete <- full_range_flr_complete %>% dplyr::select(-.val, -.equ, -.zer, -.cap, -.cen, -.sea, -.otl,
                                                                      -.gbf, -.summary, -dataset)
 
-full_range_flr_filtered <- left_join(full_range_flr_filtered, life_hist, by = "species")
+full_range_flr_complete <- left_join(full_range_flr_complete, life_hist, by = "species")
 head(full_range_flr_complete)
 dim(full_range_flr_complete)
 length(unique(full_range_flr_complete$species))
@@ -142,7 +142,8 @@ colnames(full_range_flr_filtered)
 saveRDS(full_range_flr_filtered, file="Data/full_range_flr_filtered.rds")
 write_csv(full_range_flr_filtered, file="Data/full_range_flr_filtered.csv")
 
-
+#write_csv(full_range_flr_complete, file="Data/full_range_flr_complete.csv")
+#saveRDS(full_range_flr_complete, file="Data/full_range_flr_complete.rds")
 
 
 ## OLD -----
