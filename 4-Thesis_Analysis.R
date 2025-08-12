@@ -18,10 +18,12 @@ library(stringr)
 
 setwd("~/Desktop/Thesis_25")
 
-df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
-df_flr_final_filtered <- read_rds("Data/df_flr_final_filtered.rds")
-dim(df_flr_final_filtered)
-dim(df_flr_final_complete)
+# df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
+# df_flr_final_filtered <- read_rds("Data/df_flr_final_filtered.rds")
+# dim(df_flr_final_filtered)
+# dim(df_flr_final_complete)
+
+full_range_flr_filtered <- read_rds("Data/full_range_flr_filtered.rds")
 
 ## old trait data prep ---- 
 #trait_species <- read.csv("trait_species.csv")
@@ -53,8 +55,14 @@ unique(df_flr_final_filtered$species)
 #Excluding species - either for low number of observations or skewing data 
 
 
-data <- df_flr_final_filtered %>% dplyr::select(latitude, longitude, species, spring_temp,
-                                               spring_precip, elevation, doy, life_history)
+# data <- df_flr_final_filtered %>% dplyr::select(latitude, longitude, species, spring_temp,
+#                                                spring_precip, elevation, doy, life_history)
+# data <- na.omit(data)
+# unique(data$species)
+
+str(full_range_flr_filtered)
+
+data <- full_range_flr_filtered
 data <- na.omit(data)
 unique(data$species)
 
@@ -124,7 +132,7 @@ formula_select2 <- doy_sc ~ 1 +
   (1 + latitude_sc * stemp_sc * sprecip_sc * elevation_sc | species)
 
 fit <- brm(
-  formula = formula_select2,
+  formula = formula_full,
   data = data,
   family = gaussian(),  
   #control = list(adapt_delta = 0.99, max_treedepth = 15),

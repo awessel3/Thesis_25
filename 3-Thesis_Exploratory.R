@@ -12,14 +12,20 @@ library(GGally)
 
 setwd("~/Desktop/Thesis_25")
 
-df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
-test.data <- df_flr_final_complete
 
-test.data <- df_flr_final_filtered  %>% dplyr::select(latitude, longitude, species, elevation, 
-                                                      doy, precip, temp, life_history,
-                                                      spring_temp, spring_precip)
+#df_flr_final_filtered <- read_rds("Data/df_flr_final_filtered.rds")
+
+full_range_flr_filtered <- read_rds("Data/full_range_flr_filtered.rds")
+
+
+# test.data <- full_range_flr_filtered  %>% dplyr::select(latitude, longitude, species, elevation, 
+#                                                       doy, precip, temp, life_history,
+#                                                       spring_temp, spring_precip)
+
+test.data <- full_range_flr_filtered
 test.data <- na.omit(test.data)
 dim(test.data)
+str(test.data)
 
 
 #frequency of observations
@@ -42,12 +48,12 @@ temp
 #Total observations per species 
 
 species_sum <- test.data %>% 
-  group_by(species, life_history) %>% 
+  group_by(species) %>% 
   summarise(total_observations = n()) 
 species_sum
 
 #total_observations_plot
-ggplot(species_sum, aes(x=  total_observations, y = species, fill = life_history)) + geom_col()
+ggplot(species_sum, aes(x=  total_observations, y = species)) + geom_col()
 
 #Exploratory just plotting against each other
 #print out for each species 
@@ -78,7 +84,7 @@ lat
 
 #All_exploreplots
 
-#New - All_exploreplots_springtemp, replaced preceding_temp with spring_temp
+#New - All_exploreplots_spring, replaced preceding_temp with spring_temp
 lat + elev + temp + precip
 
 #Against eachother
@@ -106,7 +112,7 @@ lat_precip <- ggplot(data = test.data,
 
 #All_cross_exploreplots
 
-#New: All_cross_exploreplots_springtemp
+#New: All_cross_exploreplots_spring
 precip_temp + temp_lat + elev_temp + lat_precip
 
 #Species Specific

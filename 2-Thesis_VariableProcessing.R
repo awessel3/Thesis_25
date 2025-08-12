@@ -14,22 +14,37 @@ getwd()
 ############## DATA CLEANING ################### 
 
 df_flr_final_complete <- read_rds("Data/df_flr_final_complete.rds")
+full_range_flr_complete <- read_rds("Data/full_range_flr_complete.rds")
+
 head(df_flr_final_complete)
 colnames(df_flr_final_complete)
 dim(df_flr_final_complete)
 
-## Part 1: Adding temp/precip variables
+## Adding life history
+
+life_hist <- read.csv("Data/Flowering_WVPT_life_history.csv")
+life_hist
+life_hist_species <- unique(life_hist$species)
+length(life_hist_species)
+
+full_range_species <- unique(full_range_flr_complete$species)
+length(full_range_species)
+full_range_species
+
+
+## Part 1: Adding temp/precip variables 
+# - not needed for full range dataset
 
 # feb - may 
 spring_temp <- rowMeans(df_flr_final_complete[,c("tmean_6","tmean_7", "tmean_8",
                                                  "tmean_9")])
 
-df_flr_final_complete$spring_temp <- spring_temp
+#df_flr_final_complete$spring_temp <- spring_temp
 
 spring_precip <- rowMeans(df_flr_final_complete[,c("ppt_6","ppt_7", "ppt_8",
                                                    "ppt_9")])
 
-df_flr_final_complete$spring_precip <- spring_precip
+#df_flr_final_complete$spring_precip <- spring_precip
 
 # plot check
 ggplot(df_flr_final_complete, aes(x = spring_temp, y = doy)) + geom_point()
@@ -37,7 +52,9 @@ ggplot(df_flr_final_complete, aes(x = spring_precip, y = doy)) + geom_point()
 
 ## Part 2: Observation bias filtering 
 
-coords_filter <- df_flr_final_complete 
+# coords_filter <- df_flr_final_complete 
+coords_filter <- as.data.frame(full_range_flr_complete)
+str(coords_filter)
 coords_filter$dataset <- "clean"
 
 # geographic cleaning 
@@ -62,30 +79,69 @@ dim(coords.test2)
 # join data with removed coordinates
 
 colnames(coords.test2)
-df_flr_final_filtered <- right_join(df_flr_final_complete, coords.test2, by = 'id')
-dim(df_flr_final_filtered)
+# df_flr_final_filtered <- right_join(df_flr_final_complete, coords.test2, by = 'id')
+# dim(df_flr_final_filtered)
 
-## Part 3: filtering for odd observations
+full_range_flr_complete <- coords.test2
+full_range_flr_complete <- full_range_flr_complete %>% dplyr::select(-.val, -.equ, -.zer, -.cap, -.cen, -.sea, -.otl,
+                                                                     -.gbf, -.summary, -dataset)
+
+full_range_flr_filtered <- left_join(full_range_flr_filtered, life_hist, by = "species")
+head(full_range_flr_complete)
+dim(full_range_flr_complete)
+length(unique(full_range_flr_complete$species))
+
+
+## Part 4: filtering for odd observations
 
 excluded <- c("Sidalcea malviflora", 'Bidens frondosa')
 specific_id <- c("126237225")
-sum(df_flr_final_complete$id == "126237225")
+# sum(df_flr_final_complete$id == "126237225")
 
-df_flr_final_filtered <- df_flr_final_complete %>%
-  filter(!(species %in% excluded)) %>% 
-  filter(id != specific_id)
-dim(df_flr_final_filtered)
-sum(df_flr_final_filtered$id == "126237225")
-sum(df_flr_final_filtered$species == 'Bidens frondosa')
+sum(full_range_flr_complete$id == "126237225")
+
+# df_flr_final_filtered <- df_flr_final_complete %>%
+#   filter(!(species %in% excluded)) %>% 
+#   filter(id != specific_id)
+# dim(df_flr_final_filtered)
+# sum(df_flr_final_filtered$id == "126237225")
+# sum(df_flr_final_filtered$species == 'Bidens frondosa')
 
 #saving filtered data 
-dim(df_flr_final_complete)
-dim(df_flr_final_filtered)
-colnames(df_flr_final_complete)
-colnames(df_flr_final_filtered)
+# dim(df_flr_final_complete)
+# dim(df_flr_final_filtered)
+# colnames(df_flr_final_complete)
+# colnames(df_flr_final_filtered)
+# 
+# saveRDS(df_flr_final_filtered, file="Data/df_flr_final_filtered.rds") 
+# write_csv(df_flr_final_filtered, file="Data/df_flr_final_filtered.csv") 
 
-saveRDS(df_flr_final_filtered, file="Data/df_flr_final_filtered.rds") 
-write_csv(df_flr_final_filtered, file="Data/df_flr_final_filtered.csv") 
+full_range_flr_filtered <- full_range_flr_complete %>%
+  filter(!(species %in% excluded)) %>% 
+  filter(id != specific_id)
+dim(full_range_flr_filtered)
+sum(full_range_flr_filtered$id == "126237225")
+sum(full_range_flr_filtered$species == 'Bidens frondosa')
+
+# renaming for consistency 
+
+full_range_flr_filtered <- rename(full_range_flr_filtered, temp = mean_temp_fullyear)
+full_range_flr_filtered <- rename(full_range_flr_filtered, precip = total_precip_fullyear)
+
+full_range_flr_filtered <- rename(full_range_flr_filtered, spring_precip = total_precip_winterspring)
+full_range_flr_filtered <- rename(full_range_flr_filtered, spring_temp = mean_temp_winterspring)
+
+dim(full_range_flr_filtered)
+dim(full_range_flr_complete)
+dim(full_range_flr_filtered)
+colnames(full_range_flr_complete)
+colnames(df_flr_final_complete)
+colnames(full_range_flr_filtered)
+
+
+saveRDS(full_range_flr_filtered, file="Data/full_range_flr_filtered.rds")
+write_csv(full_range_flr_filtered, file="Data/full_range_flr_filtered.csv")
+
 
 
 
