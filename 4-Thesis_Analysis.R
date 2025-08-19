@@ -122,6 +122,15 @@ formula4 <- doy_sc ~ 1 + ptemp_sc + latitude_sc + ptemp_sc * elevation_sc +
 formula_full <- doy_sc ~ 1 + latitude_sc * stemp_sc * elevation_sc * sprecip_sc * life_history +
   (1 + latitude_sc * stemp_sc * elevation_sc * sprecip_sc | species)
 
+mod1 <- doy ~ 1 + life_history + latitude_sc + elevation_sc + temp_winterspring_sc + precip_winterspring_sc +#  main effects
+  latitude_sc:temp_winterspring_sc + latitude_sc:elevation_sc + temp_winterspring_sc:precip_winterspring_sc +# climate interactions
+  # Life history interactions with climate (different sensitivities)
+  life_history:latitude_sc + life_history:temp_winterspring_sc +  life_history:precip_winterspring_sc + life_history:elevation_sc + 
+  life_history:temp_winterspring_sc:precip_winterspring_sc + 
+  # Random effects by species
+  (1 + latitude_sc + temp_winterspring_sc + elevation_sc + precip_winterspring_sc + temp_winterspring_sc:precip_winterspring_sc +
+     latitude_sc:precip_winterspring_sc + latitude_sc:temp_winterspring_sc| species)
+
 #
 formula_select1 <- doy_sc ~ 1 + 
   latitude_sc * stemp_sc * sprecip_sc * life_history + elevation + 
